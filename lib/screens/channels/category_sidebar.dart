@@ -7,6 +7,7 @@ class CategorySidebar extends StatelessWidget {
   final ChannelCategory? selected;
   final int totalCount;
   final ValueChanged<ChannelCategory?> onSelect;
+  final bool asSheet;
 
   const CategorySidebar({
     super.key,
@@ -15,29 +16,64 @@ class CategorySidebar extends StatelessWidget {
     required this.selected,
     required this.totalCount,
     required this.onSelect,
+    this.asSheet = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 250,
-      child: Container(
-        color: const Color(0xFF1A1A2E),
-        child: ListView(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          children: [
-            _buildItem(context, 'All Channels', totalCount, null),
-            if (groups.isNotEmpty) ...[
-              _buildHeader(context, 'Categories'),
-              ...groups.map((g) =>
-                  _buildItem(context, g.name, g.channelCount, g)),
-            ],
-            if (languages.isNotEmpty) ...[
-              _buildHeader(context, 'Languages'),
-              ...languages.map((l) =>
-                  _buildItem(context, l.name, l.channelCount, l)),
-            ],
-          ],
+    final listView = ListView(
+      shrinkWrap: asSheet,
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      children: [
+        if (asSheet)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+            child: Row(
+              children: [
+                Text(
+                  'Filter Channels',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey.shade200,
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: Icon(Icons.close, color: Colors.grey.shade400),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+          ),
+        _buildItem(context, 'All Channels', totalCount, null),
+        if (groups.isNotEmpty) ...[
+          _buildHeader(context, 'Categories'),
+          ...groups.map((g) =>
+              _buildItem(context, g.name, g.channelCount, g)),
+        ],
+        if (languages.isNotEmpty) ...[
+          _buildHeader(context, 'Languages'),
+          ...languages.map((l) =>
+              _buildItem(context, l.name, l.channelCount, l)),
+        ],
+      ],
+    );
+
+    // When used as a bottom sheet, don't wrap in SizedBox/Container
+    if (asSheet) {
+      return listView;
+    }
+
+    return SafeArea(
+      right: false,
+      top: false,
+      bottom: false,
+      child: SizedBox(
+        width: 250,
+        child: Container(
+          color: const Color(0xFF1A1A2E),
+          child: listView,
         ),
       ),
     );

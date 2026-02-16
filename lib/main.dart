@@ -40,6 +40,8 @@ void main() async {
     ]);
     await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   }
+  // iOS: allow all orientations (portrait for browsing, landscape for video)
+  // No orientation lock needed at startup
 
   runApp(const ProviderScope(child: IptvApp()));
 }

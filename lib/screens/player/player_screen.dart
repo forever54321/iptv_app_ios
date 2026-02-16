@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,6 +7,11 @@ import 'package:go_router/go_router.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:window_manager/window_manager.dart';
 import '../../providers/player_provider.dart';
+
+bool get _isDesktop =>
+    Platform.isWindows || Platform.isLinux || Platform.isMacOS;
+
+bool get _isMobile => Platform.isIOS || Platform.isAndroid;
 
 class PlayerScreen extends ConsumerStatefulWidget {
   final int initialChannelIndex;
@@ -30,12 +36,31 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       notifier.playChannel(widget.initialChannelIndex);
     });
     _startHideTimer();
+
+    // On iOS, force landscape for video playback
+    if (Platform.isIOS) {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    }
   }
 
   @override
   void dispose() {
     _hideTimer?.cancel();
     ref.read(playerProvider.notifier).stop();
+    // On iOS, restore all orientations when leaving the player
+    if (Platform.isIOS) {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    }
     super.dispose();
   }
 
@@ -43,9 +68,19 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     final notifier = ref.read(playerProvider.notifier);
     final state = ref.read(playerProvider);
     await notifier.stop();
-    if (state.isFullscreen) {
+    if (_isDesktop && state.isFullscreen) {
       await windowManager.setFullScreen(false);
       notifier.setFullscreen(false);
+    }
+    // Restore orientations before navigating away (dispose fires too late)
+    if (Platform.isIOS) {
+      await SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+      await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     }
     if (mounted) context.go('/channels');
   }
@@ -67,12 +102,24 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   Future<void> _toggleFullscreen() async {
     final notifier = ref.read(playerProvider.notifier);
     final current = ref.read(playerProvider).isFullscreen;
-    if (current) {
-      await windowManager.setFullScreen(false);
-      notifier.setFullscreen(false);
+    if (_isDesktop) {
+      if (current) {
+        await windowManager.setFullScreen(false);
+        notifier.setFullscreen(false);
+      } else {
+        await windowManager.setFullScreen(true);
+        notifier.setFullscreen(true);
+      }
     } else {
-      await windowManager.setFullScreen(true);
-      notifier.setFullscreen(true);
+      // On mobile, toggle immersive mode
+      if (current) {
+        await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+        notifier.setFullscreen(false);
+      } else {
+        await SystemChrome.setEnabledSystemUIMode(
+            SystemUiMode.immersiveSticky);
+        notifier.setFullscreen(true);
+      }
     }
   }
 
@@ -135,43 +182,50 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                           colors: [Colors.black87, Colors.transparent],
                         ),
                       ),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 12),
-                      child: Row(
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.arrow_back,
-                                color: Colors.white),
-                            onPressed: _goBack,
-                          ),
-                          const SizedBox(width: 12),
-                          if (channel != null) ...[
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    channel.title,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  if (channel.groupTitle != null)
-                                    Text(
-                                      channel.groupTitle!,
-                                      style: TextStyle(
-                                        color: Colors.grey.shade400,
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                                ],
+                      child: SafeArea(
+                        bottom: false,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 12),
+                          child: Row(
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.arrow_back,
+                                    color: Colors.white),
+                                iconSize: _isMobile ? 28 : 24,
+                                onPressed: _goBack,
                               ),
-                            ),
-                          ],
-                        ],
+                              const SizedBox(width: 12),
+                              if (channel != null) ...[
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        channel.title,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      if (channel.groupTitle != null)
+                                        Text(
+                                          channel.groupTitle!,
+                                          style: TextStyle(
+                                            color: Colors.grey.shade400,
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -188,62 +242,73 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                           colors: [Colors.black87, Colors.transparent],
                         ),
                       ),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 12),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.skip_previous,
-                                color: Colors.white, size: 32),
-                            onPressed: () => notifier.previousChannel(),
+                      child: SafeArea(
+                        top: false,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 12),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.skip_previous,
+                                    color: Colors.white),
+                                iconSize: _isMobile ? 36 : 32,
+                                onPressed: () => notifier.previousChannel(),
+                              ),
+                              SizedBox(width: _isMobile ? 20 : 16),
+                              IconButton(
+                                icon: Icon(
+                                  state.isPlaying
+                                      ? Icons.pause_circle_filled
+                                      : Icons.play_circle_filled,
+                                  color: Colors.white,
+                                ),
+                                iconSize: _isMobile ? 56 : 48,
+                                onPressed: () => notifier.playPause(),
+                              ),
+                              SizedBox(width: _isMobile ? 20 : 16),
+                              IconButton(
+                                icon: const Icon(Icons.skip_next,
+                                    color: Colors.white),
+                                iconSize: _isMobile ? 36 : 32,
+                                onPressed: () => notifier.nextChannel(),
+                              ),
+                              // Volume slider: desktop only (iOS uses hardware buttons)
+                              if (_isDesktop) ...[
+                                const SizedBox(width: 32),
+                                Icon(
+                                  state.volume > 0
+                                      ? Icons.volume_up
+                                      : Icons.volume_off,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
+                                SizedBox(
+                                  width: 120,
+                                  child: Slider(
+                                    value: state.volume,
+                                    max: 100,
+                                    onChanged: (v) => notifier.setVolume(v),
+                                  ),
+                                ),
+                              ],
+                              const Spacer(),
+                              // Fullscreen button: desktop only (mobile is already fullscreen)
+                              if (_isDesktop)
+                                IconButton(
+                                  icon: Icon(
+                                    state.isFullscreen
+                                        ? Icons.fullscreen_exit
+                                        : Icons.fullscreen,
+                                    color: Colors.white,
+                                    size: 28,
+                                  ),
+                                  onPressed: _toggleFullscreen,
+                                ),
+                            ],
                           ),
-                          const SizedBox(width: 16),
-                          IconButton(
-                            icon: Icon(
-                              state.isPlaying
-                                  ? Icons.pause_circle_filled
-                                  : Icons.play_circle_filled,
-                              color: Colors.white,
-                              size: 48,
-                            ),
-                            onPressed: () => notifier.playPause(),
-                          ),
-                          const SizedBox(width: 16),
-                          IconButton(
-                            icon: const Icon(Icons.skip_next,
-                                color: Colors.white, size: 32),
-                            onPressed: () => notifier.nextChannel(),
-                          ),
-                          const SizedBox(width: 32),
-                          // Volume
-                          Icon(
-                            state.volume > 0
-                                ? Icons.volume_up
-                                : Icons.volume_off,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                          SizedBox(
-                            width: 120,
-                            child: Slider(
-                              value: state.volume,
-                              max: 100,
-                              onChanged: (v) => notifier.setVolume(v),
-                            ),
-                          ),
-                          const Spacer(),
-                          IconButton(
-                            icon: Icon(
-                              state.isFullscreen
-                                  ? Icons.fullscreen_exit
-                                  : Icons.fullscreen,
-                              color: Colors.white,
-                              size: 28,
-                            ),
-                            onPressed: _toggleFullscreen,
-                          ),
-                        ],
+                        ),
                       ),
                     ),
                   ),

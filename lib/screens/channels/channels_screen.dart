@@ -15,6 +15,8 @@ class ChannelsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final channelsAsync = ref.watch(channelListProvider);
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isWideScreen = screenWidth >= 600;
 
     return Scaffold(
       appBar: AppBar(
@@ -24,8 +26,14 @@ class ChannelsScreen extends ConsumerWidget {
         ),
         title: const Text('Channels'),
         actions: [
+          // On narrow screens, show filter button for category bottom sheet
+          if (!isWideScreen)
+            IconButton(
+              icon: const Icon(Icons.filter_list),
+              onPressed: () => _showCategoryBottomSheet(context, ref),
+            ),
           SizedBox(
-            width: 300,
+            width: isWideScreen ? 300 : screenWidth * 0.5,
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
               child: TextField(
@@ -69,46 +77,92 @@ class ChannelsScreen extends ConsumerWidget {
               .where((c) => c.type == CategoryType.language)
               .toList();
 
-          return Row(
-            children: [
-              CategorySidebar(
-                groups: groups,
-                languages: languages,
-                selected: selected,
-                totalCount: allChannels.length,
-                onSelect: (cat) {
-                  ref.read(selectedCategoryProvider.notifier).state = cat;
-                },
-              ),
-              Expanded(
-                child: filtered.isEmpty
-                    ? const Center(child: Text('No channels match your filter.'))
-                    : GridView.builder(
-                        padding: const EdgeInsets.all(12),
-                        gridDelegate:
-                            const SliverGridDelegateWithMaxCrossAxisExtent(
-                          maxCrossAxisExtent: 200,
-                          childAspectRatio: 1.1,
-                          crossAxisSpacing: 10,
-                          mainAxisSpacing: 10,
-                        ),
-                        itemCount: filtered.length,
-                        itemBuilder: (context, index) {
-                          return ChannelTile(
-                            channel: filtered[index],
-                            onTap: () {
-                              context.go('/player', extra: {
-                                'initialIndex': index,
-                              });
-                            },
-                          );
-                        },
-                      ),
-              ),
-            ],
-          );
+          final gridExtent = isWideScreen ? 200.0 : 160.0;
+
+          final grid = filtered.isEmpty
+              ? const Center(child: Text('No channels match your filter.'))
+              : GridView.builder(
+                  padding: const EdgeInsets.all(12),
+                  gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                    maxCrossAxisExtent: gridExtent,
+                    childAspectRatio: 1.1,
+                    crossAxisSpacing: 10,
+                    mainAxisSpacing: 10,
+                  ),
+                  itemCount: filtered.length,
+                  itemBuilder: (context, index) {
+                    return ChannelTile(
+                      channel: filtered[index],
+                      onTap: () {
+                        context.go('/player', extra: {
+                          'initialIndex': index,
+                        });
+                      },
+                    );
+                  },
+                );
+
+          // Wide screen: sidebar + grid
+          if (isWideScreen) {
+            return Row(
+              children: [
+                CategorySidebar(
+                  groups: groups,
+                  languages: languages,
+                  selected: selected,
+                  totalCount: allChannels.length,
+                  onSelect: (cat) {
+                    ref.read(selectedCategoryProvider.notifier).state = cat;
+                  },
+                ),
+                Expanded(child: grid),
+              ],
+            );
+          }
+
+          // Narrow screen: grid only (categories via bottom sheet)
+          return grid;
         },
       ),
+    );
+  }
+
+  void _showCategoryBottomSheet(BuildContext context, WidgetRef ref) {
+    final categories = ref.read(categoriesProvider);
+    final selected = ref.read(selectedCategoryProvider);
+    final channelsAsync = ref.read(channelListProvider);
+    final totalCount = channelsAsync.valueOrNull?.length ?? 0;
+
+    final groups =
+        categories.where((c) => c.type == CategoryType.group).toList();
+    final languages =
+        categories.where((c) => c.type == CategoryType.language).toList();
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1A1A2E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      isScrollControlled: true,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.7,
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: CategorySidebar(
+            groups: groups,
+            languages: languages,
+            selected: selected,
+            totalCount: totalCount,
+            onSelect: (cat) {
+              ref.read(selectedCategoryProvider.notifier).state = cat;
+              Navigator.pop(context);
+            },
+            asSheet: true,
+          ),
+        );
+      },
     );
   }
 }
