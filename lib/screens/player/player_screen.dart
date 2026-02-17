@@ -32,8 +32,14 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     final notifier = ref.read(playerProvider.notifier);
     _videoController = VideoController(notifier.player);
     // Start playing the selected channel
-    Future.microtask(() {
-      notifier.playChannel(widget.initialChannelIndex);
+    // On macOS, mpv needs a brief delay after initialization before playback
+    Future.microtask(() async {
+      if (Platform.isMacOS) {
+        await Future.delayed(const Duration(seconds: 2));
+      }
+      if (mounted) {
+        notifier.playChannel(widget.initialChannelIndex);
+      }
     });
     _startHideTimer();
 
@@ -50,17 +56,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   @override
   void dispose() {
     _hideTimer?.cancel();
-    ref.read(playerProvider.notifier).stop();
-    // On iOS, restore all orientations when leaving the player
-    if (Platform.isIOS) {
-      SystemChrome.setPreferredOrientations([
-        DeviceOrientation.portraitUp,
-        DeviceOrientation.portraitDown,
-        DeviceOrientation.landscapeLeft,
-        DeviceOrientation.landscapeRight,
-      ]);
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    }
     super.dispose();
   }
 
