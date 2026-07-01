@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<component name="SimpleKeyboard" extends="Group">
+    <interface>
+        <field id="text" type="string" value="" alwaysNotify="true" />
+        <field id="submitted" type="boolean" alwaysNotify="true" />
+    </interface>
+    <script type="text/brightscript" uri="SimpleKeyboard.brs" />
+
+    <children>
+        <Label id="textDisplay" translation="[0, 0]" font="font:MediumBoldSystemFont" color="#FFFFFF" width="1200" />
+        <Rectangle translation="[0, 50]" width="1200" height="2" color="#9B59B666" />
+        <LabelList id="keyList" translation="[0, 70]"
+                   itemSize="[300, 55]" numRows="12"
+                   color="#BBBBBB" focusedColor="#FFFFFF"
+                   focusBitmapBlendColor="#9B59B640"
+                   drawFocusFeedback="true"
+                   vertFocusAnimationStyle="floatingFocus" />
+    </children>
+</component>

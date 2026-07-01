@@ -44,7 +44,9 @@ class PlaylistSource extends HiveObject {
         username != null &&
         password != null) {
       final base = url.endsWith('/') ? url.substring(0, url.length - 1) : url;
-      return '$base/get.php?username=$username&password=$password&type=m3u_plus&output=ts';
+      final u = Uri.encodeQueryComponent(username!);
+      final p = Uri.encodeQueryComponent(password!);
+      return '$base/get.php?username=$u&password=$p&type=m3u_plus&output=ts';
     }
     return url;
   }

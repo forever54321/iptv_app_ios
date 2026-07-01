@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<component name="FavoritesScreen" extends="Group">
+    <interface>
+        <field id="action" type="assocarray" alwaysNotify="true" />
+        <field id="restoreFocus" type="boolean" alwaysNotify="true" />
+    </interface>
+    <script type="text/brightscript" uri="FavoritesScreen.brs" />
+    <script type="text/brightscript" uri="pkg:/components/services/RegistryService.brs" />
+    <children>
+        <Rectangle width="1920" height="1080" color="#0F0A23" />
+        <Label text="★ Favorites" translation="[90, 50]" font="font:LargeBoldSystemFont" color="#DAA520" />
+        <Rectangle translation="[90, 115]" width="1740" height="2" color="#DAA52033" />
+        <PosterGrid id="favGrid" translation="[90, 140]" basePosterSize="[240, 160]" numColumns="6" numRows="5" itemSpacing="[20, 20]" focusBitmapBlendColor="#DAA52080" />
+        <Label id="emptyLabel" visible="false" translation="[700, 400]" text="No favorite channels yet" font="font:MediumBoldSystemFont" color="#DAA520" />
+    </children>
+</component>

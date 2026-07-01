@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<component name="LegalDisclaimerScreen" extends="Group">
+    <interface>
+        <field id="action" type="assocarray" alwaysNotify="true" />
+    </interface>
+    <script type="text/brightscript" uri="LegalDisclaimerScreen.brs" />
+    <children>
+        <Rectangle width="1920" height="1080" color="#0F0A23" />
+        <Label text="IPTV Stream Player" translation="[660, 100]" font="font:LargeBoldSystemFont" color="#9B59B6" />
+        <Rectangle translation="[360, 170]" width="1200" height="2" color="#9B59B633" />
+        <Label text="Legal Disclaimer" translation="[760, 200]" font="font:MediumBoldSystemFont" color="#FFFFFF" />
+        <Label id="bodyLabel" wrap="true" width="1200" translation="[360, 280]" color="#BBBBBB" font="font:SmallSystemFont" text="This app does not provide any IPTV content, channels, or streams. You must provide your own M3U playlist URLs or Xtream Codes server credentials. You are solely responsible for ensuring that the content you access is legal in your jurisdiction. The developers of this app are not responsible for any content accessed through third-party playlists or servers." />
+        <ButtonGroup id="buttons" translation="[760, 550]" />
+    </children>
+</component>

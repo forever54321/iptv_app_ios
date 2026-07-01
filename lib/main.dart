@@ -5,8 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:window_manager/window_manager.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'app.dart';
 import 'services/storage_service.dart';
+import 'services/pro_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -15,6 +17,7 @@ void main() async {
   // Initialize Hive
   await Hive.initFlutter();
   await StorageService.init();
+  await ProService.instance.init();
 
   // Desktop-only: window manager
   if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
@@ -32,16 +35,23 @@ void main() async {
     });
   }
 
-  // Android TV: force landscape, hide system UI
-  if (Platform.isAndroid) {
+  // Android & iOS: allow all orientations (portrait for browsing, landscape for video)
+  if (Platform.isAndroid || Platform.isIOS) {
     await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
       DeviceOrientation.landscapeLeft,
       DeviceOrientation.landscapeRight,
     ]);
-    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   }
-  // iOS: allow all orientations (portrait for browsing, landscape for video)
-  // No orientation lock needed at startup
 
-  runApp(const ProviderScope(child: IptvApp()));
+  // Check if user already accepted the legal disclaimer
+  final prefs = await SharedPreferences.getInstance();
+  final disclaimerAccepted = prefs.getBool('legal_disclaimer_accepted') ?? false;
+  final whatsNewShown = prefs.getBool('whats_new_v4_1_2_shown') ?? false;
+
+  runApp(ProviderScope(child: IptvApp(
+    disclaimerAccepted: disclaimerAccepted,
+    showWhatsNew: disclaimerAccepted && !whatsNewShown,
+  )));
 }

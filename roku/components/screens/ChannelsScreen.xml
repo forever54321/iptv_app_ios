@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<component name="ChannelsScreen" extends="Group">
+    <interface>
+        <field id="action" type="assocarray" alwaysNotify="true" />
+        <field id="groupName" type="string" />
+        <field id="section" type="string" />
+        <field id="title" type="string" value="Channels" />
+        <field id="restoreFocus" type="boolean" alwaysNotify="true" />
+    </interface>
+    <script type="text/brightscript" uri="ChannelsScreen.brs" />
+    <script type="text/brightscript" uri="pkg:/components/services/RegistryService.brs" />
+    <script type="text/brightscript" uri="pkg:/components/localization/AppStrings.brs" />
+
+    <children>
+        <Rectangle width="1920" height="1080" color="#0F0A23" />
+        <Label id="titleLabel" translation="[90, 50]" font="font:LargeBoldSystemFont" color="#9B59B6" />
+        <Label id="countLabel" translation="[90, 105]" font="font:SmallSystemFont" color="#666666" />
+
+        <Rectangle translation="[90, 130]" width="1740" height="2" color="#9B59B633" />
+
+        <PosterGrid id="channelGrid" translation="[90, 150]"
+                    basePosterSize="[240, 160]"
+                    numColumns="6" numRows="5"
+                    itemSpacing="[20, 20]"
+                    focusBitmapBlendColor="#9B59B680" />
+    </children>
+</component>

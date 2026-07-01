@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<component name="HomeScreen" extends="Group">
+    <interface>
+        <field id="action" type="assocarray" alwaysNotify="true" />
+        <field id="refresh" type="boolean" alwaysNotify="true" />
+        <field id="restoreFocus" type="boolean" alwaysNotify="true" />
+    </interface>
+    <script type="text/brightscript" uri="HomeScreen.brs" />
+    <script type="text/brightscript" uri="pkg:/components/services/RegistryService.brs" />
+    <script type="text/brightscript" uri="pkg:/components/services/StringUtils.brs" />
+    <script type="text/brightscript" uri="pkg:/components/localization/AppStrings.brs" />
+
+    <children>
+        <Rectangle width="1920" height="1080" color="#0F0A23" />
+        <!-- Title -->
+        <Label id="titleLabel" text="IPTV Stream Player" translation="[90, 50]"
+               font="font:LargeBoldSystemFont" color="#9B59B6" />
+
+        <!-- Toolbar -->
+        <Button id="favoritesButton" text="★ Favorites" translation="[1150, 50]" minWidth="200" />
+        <Button id="settingsButton" text="⚙ Settings" translation="[1400, 50]" minWidth="200" />
+        <Button id="addButton" text="+ Add" translation="[1640, 50]" minWidth="160" />
+
+        <!-- Divider -->
+        <Rectangle translation="[90, 120]" width="1740" height="2" color="#9B59B633" />
+
+        <!-- Your Playlists label -->
+        <Label text="YOUR PLAYLISTS" translation="[90, 140]"
+               font="font:SmallBoldSystemFont" color="#9B59B6" />
+
+        <!-- Playlist list -->
+        <LabelList id="playlistList" translation="[90, 190]"
+                   itemSize="[1740, 80]" numRows="8"
+                   color="#BBBBBB" focusedColor="#FFFFFF"
+                   focusBitmapBlendColor="#9B59B640"
+                   drawFocusFeedback="true"
+                   vertFocusAnimationStyle="floatingFocus" />
+
+        <!-- Empty state -->
+        <Label id="emptyLabel1" visible="false" translation="[700, 400]"
+               text="No playlists added yet" font="font:MediumBoldSystemFont"
+               color="#9B59B6" />
+        <Label id="emptyLabel2" visible="false" translation="[600, 460]"
+               text="Press + Add to add your M3U playlist URL" font="font:SmallSystemFont"
+               color="#888888" />
+    </children>
+</component>

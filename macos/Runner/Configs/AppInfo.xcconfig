@@ -8,7 +8,7 @@
 PRODUCT_NAME = IPTV Player
 
 // The application's bundle identifier
-PRODUCT_BUNDLE_IDENTIFIER = com.iptvapp.player
+PRODUCT_BUNDLE_IDENTIFIER = com.iptvapp.macplayer
 
 // The copyright displayed in application information
 PRODUCT_COPYRIGHT = Copyright © 2026 com.iptvapp. All rights reserved.

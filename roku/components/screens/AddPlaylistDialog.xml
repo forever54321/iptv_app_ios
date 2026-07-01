@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<component name="AddPlaylistDialog" extends="Group">
+    <interface>
+        <field id="action" type="assocarray" alwaysNotify="true" />
+    </interface>
+    <script type="text/brightscript" uri="AddPlaylistDialog.brs" />
+    <script type="text/brightscript" uri="pkg:/components/services/RegistryService.brs" />
+    <script type="text/brightscript" uri="pkg:/components/services/StringUtils.brs" />
+    <script type="text/brightscript" uri="pkg:/components/localization/AppStrings.brs" />
+
+    <children>
+        <Rectangle width="1920" height="1080" color="#0F0A23" />
+        <Label text="Add Playlist" translation="[90, 30]" font="font:MediumBoldSystemFont" color="#9B59B6" />
+        <Rectangle translation="[90, 70]" width="1740" height="2" color="#9B59B633" />
+
+        <!-- Fields on left -->
+        <LabelList id="fieldList" translation="[90, 90]"
+                   itemSize="[500, 65]" numRows="9"
+                   color="#BBBBBB" focusedColor="#FFFFFF"
+                   focusBitmapBlendColor="#9B59B640"
+                   drawFocusFeedback="true"
+                   vertFocusAnimationStyle="floatingFocus" />
+
+        <!-- Keyboard on right (shown when editing) -->
+        <Label id="editLabel" translation="[650, 80]" text="" font="font:SmallBoldSystemFont" color="#9B59B6" />
+        <SimpleKeyboard id="keyboard" translation="[650, 120]" visible="false" />
+    </children>
+</component>

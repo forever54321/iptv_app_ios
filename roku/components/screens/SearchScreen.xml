@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<component name="SearchScreen" extends="Group">
+    <interface>
+        <field id="action" type="assocarray" alwaysNotify="true" />
+        <field id="section" type="string" />
+        <field id="title" type="string" value="Search" />
+    </interface>
+    <script type="text/brightscript" uri="SearchScreen.brs" />
+    <script type="text/brightscript" uri="pkg:/components/services/RegistryService.brs" />
+
+    <children>
+        <Rectangle width="1920" height="1080" color="#0F0A23" />
+        <Label id="titleLabel" translation="[90, 30]" font="font:MediumBoldSystemFont" color="#2980B9" />
+
+        <!-- Custom keyboard on left -->
+        <SimpleKeyboard id="keyboard" translation="[90, 80]" />
+
+        <!-- Results on right -->
+        <Label id="resultCount" translation="[500, 30]" text="" font="font:SmallSystemFont" color="#666666" />
+        <PosterGrid id="resultsGrid" translation="[500, 80]"
+                    basePosterSize="[200, 140]" numColumns="5" numRows="5"
+                    itemSpacing="[20, 20]"
+                    focusBitmapBlendColor="#2980B980" />
+
+        <Label id="noResults" visible="false" translation="[850, 400]"
+               text="No channels found" font="font:MediumBoldSystemFont"
+               color="#2980B9" />
+    </children>
+</component>

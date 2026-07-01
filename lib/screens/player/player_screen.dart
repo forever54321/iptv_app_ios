@@ -7,6 +7,9 @@ import 'package:go_router/go_router.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:window_manager/window_manager.dart';
 import '../../providers/player_provider.dart';
+import '../../providers/pro_provider.dart';
+import '../../providers/recent_channels_provider.dart';
+import '../settings/settings_screen.dart';
 
 bool get _isDesktop =>
     Platform.isWindows || Platform.isLinux || Platform.isMacOS;
@@ -39,6 +42,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       }
       if (mounted) {
         notifier.playChannel(widget.initialChannelIndex);
+        // Track as recent channel
+        final channel = notifier.currentChannel;
+        if (channel != null) {
+          ref.read(recentChannelsListProvider.notifier).addRecent(channel);
+        }
       }
     });
     _startHideTimer();
@@ -123,6 +131,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     final state = ref.watch(playerProvider);
     final notifier = ref.read(playerProvider.notifier);
     final channel = notifier.currentChannel;
+    final aspectRatio = ref.watch(defaultAspectRatioProvider);
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -157,10 +166,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
               children: [
                 // Video
                 Positioned.fill(
-                  child: Video(
-                    controller: _videoController,
-                    controls: NoVideoControls,
-                  ),
+                  child: _buildVideo(aspectRatio),
                 ),
                 // Overlay controls
                 if (_showOverlay) ...[
@@ -245,13 +251,29 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
+                              // Previous channel
                               IconButton(
                                 icon: const Icon(Icons.skip_previous,
                                     color: Colors.white),
-                                iconSize: _isMobile ? 36 : 32,
-                                onPressed: () => notifier.previousChannel(),
+                                iconSize: _isMobile ? 32 : 28,
+                                onPressed: () {
+                                  notifier.previousChannel();
+                                  Future.microtask(() {
+                                    final ch = notifier.currentChannel;
+                                    if (ch != null) ref.read(recentChannelsListProvider.notifier).addRecent(ch);
+                                  });
+                                },
                               ),
-                              SizedBox(width: _isMobile ? 20 : 16),
+                              SizedBox(width: _isMobile ? 12 : 8),
+                              // Rewind 15s
+                              IconButton(
+                                icon: const Icon(Icons.replay_10,
+                                    color: Colors.white),
+                                iconSize: _isMobile ? 32 : 28,
+                                onPressed: () => notifier.seekBackward(),
+                              ),
+                              SizedBox(width: _isMobile ? 12 : 8),
+                              // Play/Pause
                               IconButton(
                                 icon: Icon(
                                   state.isPlaying
@@ -262,12 +284,58 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                                 iconSize: _isMobile ? 56 : 48,
                                 onPressed: () => notifier.playPause(),
                               ),
-                              SizedBox(width: _isMobile ? 20 : 16),
+                              SizedBox(width: _isMobile ? 12 : 8),
+                              // Forward 15s
+                              IconButton(
+                                icon: const Icon(Icons.forward_10,
+                                    color: Colors.white),
+                                iconSize: _isMobile ? 32 : 28,
+                                onPressed: () => notifier.seekForward(),
+                              ),
+                              SizedBox(width: _isMobile ? 12 : 8),
+                              // Next channel
                               IconButton(
                                 icon: const Icon(Icons.skip_next,
                                     color: Colors.white),
-                                iconSize: _isMobile ? 36 : 32,
-                                onPressed: () => notifier.nextChannel(),
+                                iconSize: _isMobile ? 32 : 28,
+                                onPressed: () {
+                                  notifier.nextChannel();
+                                  Future.microtask(() {
+                                    final ch = notifier.currentChannel;
+                                    if (ch != null) ref.read(recentChannelsListProvider.notifier).addRecent(ch);
+                                  });
+                                },
+                              ),
+                              SizedBox(width: _isMobile ? 12 : 8),
+                              // Record button (Pro-gated)
+                              IconButton(
+                                icon: Icon(
+                                  state.isRecording
+                                      ? Icons.stop_circle
+                                      : Icons.fiber_manual_record,
+                                  color: state.isRecording ? Colors.red : Colors.white,
+                                ),
+                                iconSize: _isMobile ? 32 : 28,
+                                onPressed: () async {
+                                  if (!ref.read(isProProvider)) {
+                                    context.push('/paywall');
+                                    return;
+                                  }
+                                  if (state.isRecording) {
+                                    await notifier.toggleRecording();
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).clearSnackBars();
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('Recording saved'),
+                                          duration: Duration(seconds: 3),
+                                        ),
+                                      );
+                                    }
+                                  } else {
+                                    _showRecordingDisclaimer(context, notifier);
+                                  }
+                                },
                               ),
                               // Volume slider: desktop only (iOS uses hardware buttons)
                               if (_isDesktop) ...[
@@ -301,6 +369,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                                   ),
                                   onPressed: _toggleFullscreen,
                                 ),
+                              // Aspect ratio button
+                              IconButton(
+                                icon: const Icon(Icons.aspect_ratio,
+                                    color: Colors.white, size: 24),
+                                onPressed: _cycleAspectRatio,
+                              ),
                             ],
                           ),
                         ),
@@ -312,6 +386,102 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  void _showRecordingDisclaimer(BuildContext context, PlayerNotifier notifier) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber, color: Colors.orange),
+            SizedBox(width: 8),
+            Text('Copyright Notice'),
+          ],
+        ),
+        content: const Text(
+          'You must own or have legal authorization to record this content. '
+          'Recording copyrighted material without permission is prohibited and may violate applicable laws.\n\n'
+          'By proceeding, you confirm that you have the right to record this content.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await notifier.toggleRecording();
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).clearSnackBars();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Recording started — tap again to stop'),
+                    duration: Duration(seconds: 3),
+                  ),
+                );
+              }
+            },
+            child: const Text('I Agree & Record'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVideo(String aspectRatio) {
+    final video = Video(
+      controller: _videoController,
+      controls: NoVideoControls,
+      fit: _getBoxFit(aspectRatio),
+    );
+
+    if (aspectRatio == '4:3') {
+      return Center(
+        child: AspectRatio(
+          aspectRatio: 4 / 3,
+          child: video,
+        ),
+      );
+    } else if (aspectRatio == '16:9') {
+      return Center(
+        child: AspectRatio(
+          aspectRatio: 16 / 9,
+          child: video,
+        ),
+      );
+    }
+    // Fill or Fit — use full screen
+    return video;
+  }
+
+  BoxFit _getBoxFit(String aspectRatio) {
+    switch (aspectRatio) {
+      case 'Fill':
+        return BoxFit.cover;
+      case 'Fit':
+        return BoxFit.contain;
+      case '4:3':
+      case '16:9':
+      default:
+        return BoxFit.contain;
+    }
+  }
+
+  void _cycleAspectRatio() {
+    const ratios = ['16:9', '4:3', 'Fill', 'Fit'];
+    final current = ref.read(defaultAspectRatioProvider);
+    final nextIndex = (ratios.indexOf(current) + 1) % ratios.length;
+    ref.read(defaultAspectRatioProvider.notifier).state = ratios[nextIndex];
+
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Aspect Ratio: ${ratios[nextIndex]}'),
+        duration: const Duration(seconds: 1),
       ),
     );
   }

@@ -50,3 +50,9 @@ app.*.map.json
 
 # Flutter plugin symlinks
 .flutter-plugins
+
+# ExFAT AppleDouble junk
+._*
+**/.kotlin/
+# native Apple TV app lives in its own repo
+/appletv/

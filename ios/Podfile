@@ -41,5 +41,16 @@ post_install do |installer|
     target.build_configurations.each do |config|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '14.0'
     end
+
+    # Remove PassKit and ProximityReader frameworks from in_app_purchase
+    # They are auto-linked but not used — Apple rejects for this
+    if target.name == 'in_app_purchase_storekit'
+      target.build_configurations.each do |config|
+        frameworks = config.build_settings['OTHER_LDFLAGS'] || ''
+        frameworks = frameworks.gsub('-framework "PassKit"', '')
+        frameworks = frameworks.gsub('-framework "ProximityReader"', '')
+        config.build_settings['OTHER_LDFLAGS'] = frameworks
+      end
+    end
   end
 end

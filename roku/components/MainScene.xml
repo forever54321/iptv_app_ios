@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<component name="MainScene" extends="Scene">
+    <interface>
+        <field id="deepLink" type="assocarray" />
+    </interface>
+    <script type="text/brightscript" uri="MainScene.brs" />
+    <script type="text/brightscript" uri="pkg:/components/services/RegistryService.brs" />
+    <script type="text/brightscript" uri="pkg:/components/services/StringUtils.brs" />
+    <script type="text/brightscript" uri="pkg:/components/localization/AppStrings.brs" />
+
+    <children>
+        <Rectangle id="background" width="1920" height="1080" color="#1A1A2E" translation="[0, 0]" />
+    </children>
+</component>

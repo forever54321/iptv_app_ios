@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../models/playlist_source.dart';
 import '../../providers/playlist_source_provider.dart';
+import '../../l10n/app_strings.dart';
+import '../../providers/category_filter_provider.dart';
+import '../../screens/settings/settings_screen.dart';
 import '../../widgets/loading_widget.dart';
 import 'add_playlist_dialog.dart';
 
@@ -12,12 +15,14 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final sourcesAsync = ref.watch(playlistSourcesProvider);
+    final lang = ref.watch(appLanguageProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('IPTV Player'),
+        title: Text(S.appTitle(lang)),
         centerTitle: true,
       ),
+      drawer: _AppDrawer(),
       body: sourcesAsync.when(
         loading: () => const LoadingWidget(message: 'Loading playlists...'),
         error: (err, _) => ErrorDisplay(
@@ -33,13 +38,14 @@ class HomeScreen extends ConsumerWidget {
                   Icon(Icons.live_tv, size: 80, color: Colors.deepPurple.shade300),
                   const SizedBox(height: 16),
                   Text(
-                    'No playlists added yet',
+                    S.noPlaylists(lang),
                     style: Theme.of(context).textTheme.headlineSmall,
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Tap + to add an M3U playlist URL',
+                    S.addPlaylistHint(lang),
                     style: Theme.of(context).textTheme.bodyMedium,
+                    textAlign: TextAlign.center,
                   ),
                 ],
               ),
@@ -67,6 +73,128 @@ class HomeScreen extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (_) => const AddPlaylistDialog(),
+    );
+  }
+
+}
+
+class _AppDrawer extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final lang = ref.watch(appLanguageProvider);
+    return Drawer(
+      backgroundColor: const Color(0xFF1A1A2E),
+      child: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+              child: Text(
+                'IPTV Player',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+            const Divider(height: 1, color: Colors.white12),
+            const SizedBox(height: 8),
+            _DrawerItem(
+              icon: Icons.video_library,
+              title: S.playlists(lang),
+              onTap: () {
+                Navigator.pop(context);
+                context.go('/home');
+              },
+            ),
+            _DrawerItem(
+              icon: Icons.star_outline,
+              title: S.favorites(lang),
+              onTap: () {
+                Navigator.pop(context);
+                context.go('/favorites');
+              },
+            ),
+            _DrawerItem(
+              icon: Icons.download_outlined,
+              title: S.downloads(lang),
+              onTap: () {
+                Navigator.pop(context);
+                context.go('/downloads');
+              },
+            ),
+            _DrawerItem(
+              icon: Icons.fiber_manual_record_outlined,
+              title: S.recordings(lang),
+              onTap: () {
+                Navigator.pop(context);
+                context.go('/recordings');
+              },
+            ),
+            _DrawerItem(
+              icon: Icons.schedule,
+              title: 'EPG',
+              onTap: () {
+                Navigator.pop(context);
+                context.go('/epg');
+              },
+            ),
+            _DrawerItem(
+              icon: Icons.settings,
+              title: S.settings(lang),
+              selected: false,
+              onTap: () {
+                Navigator.pop(context);
+                context.go('/settings');
+              },
+            ),
+            const Spacer(),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                'IPTV Player © 2026',
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DrawerItem extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _DrawerItem({
+    required this.icon,
+    required this.title,
+    this.selected = false,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      child: ListTile(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        selected: selected,
+        selectedTileColor: Colors.deepPurple.withValues(alpha: 0.2),
+        leading: Icon(icon, color: selected ? Colors.deepPurple.shade200 : Colors.grey.shade400),
+        title: Text(
+          title,
+          style: TextStyle(
+            fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+          ),
+        ),
+        onTap: onTap,
+      ),
     );
   }
 }
@@ -125,7 +253,13 @@ class _PlaylistCard extends ConsumerWidget {
         ),
         onTap: () {
           ref.read(playlistSourcesProvider.notifier).setActive(source);
-          context.go('/channels');
+          final organizeByGroups = ref.read(organizeByGroupsProvider);
+          if (organizeByGroups) {
+            context.go('/groups');
+          } else {
+            ref.read(selectedCategoryProvider.notifier).state = null;
+            context.go('/channels');
+          }
         },
       ),
     );

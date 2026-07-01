@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<component name="GroupsScreen" extends="Group">
+    <interface>
+        <field id="action" type="assocarray" alwaysNotify="true" />
+        <field id="playlist" type="assocarray" />
+        <field id="restoreFocus" type="boolean" alwaysNotify="true" />
+    </interface>
+    <script type="text/brightscript" uri="GroupsScreen.brs" />
+    <script type="text/brightscript" uri="pkg:/components/services/RegistryService.brs" />
+    <script type="text/brightscript" uri="pkg:/components/services/StringUtils.brs" />
+    <script type="text/brightscript" uri="pkg:/components/services/M3uParser.brs" />
+    <script type="text/brightscript" uri="pkg:/components/services/GroupClassifier.brs" />
+    <script type="text/brightscript" uri="pkg:/components/localization/AppStrings.brs" />
+
+    <children>
+        <Rectangle width="1920" height="1080" color="#0F0A23" />
+        <Label id="titleLabel" text="Browse" translation="[90, 50]"
+               font="font:LargeBoldSystemFont" color="#9B59B6" />
+        <Rectangle translation="[90, 115]" width="1740" height="2" color="#9B59B633" />
+
+        <!-- Loading -->
+        <Label id="loadingLabel" visible="true" translation="[90, 400]"
+               text="Loading channels..." font="font:MediumBoldSystemFont" color="#9B59B6" />
+        <Label id="debugLabel" visible="true" translation="[90, 460]"
+               text="" font="font:SmallSystemFont" color="#666666" width="1740" wrap="true" />
+
+        <!-- Category cards ONLY — no group list here -->
+        <PosterGrid id="categoryList" visible="false" translation="[180, 200]"
+                    basePosterSize="[350, 200]" numColumns="4" numRows="1"
+                    itemSpacing="[30, 30]"
+                    focusBitmapBlendColor="#9B59B680" />
+    </children>
+</component>

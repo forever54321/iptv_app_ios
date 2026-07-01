@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<component name="M3uParseTask" extends="Task">
+    <interface>
+        <field id="rawContent" type="string" />
+        <field id="parsedEntries" type="assocarray" />
+        <field id="categories" type="assocarray" />
+        <field id="status" type="string" value="idle" />
+    </interface>
+    <script type="text/brightscript" uri="M3uParseTask.brs" />
+    <script type="text/brightscript" uri="pkg:/components/services/M3uParser.brs" />
+    <script type="text/brightscript" uri="pkg:/components/services/StringUtils.brs" />
+    <script type="text/brightscript" uri="pkg:/components/services/GroupClassifier.brs" />
+</component>

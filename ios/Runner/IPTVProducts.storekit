@@ -1,0 +1,32 @@
+{
+  "identifier" : "com.iptvapp.player.products",
+  "type" : "Configuration",
+  "version" : 3,
+  "products" : [
+    {
+      "displayPrice" : "5.99",
+      "familyShareable" : true,
+      "internalID" : "1",
+      "localizations" : [
+        {
+          "description" : "Unlock all features forever. No subscription.",
+          "displayName" : "IPTV Pro — Lifetime",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.iptvapp.player.pro",
+      "referenceName" : "IPTV Pro Lifetime",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : {
+    "_failTransactionsEnabled" : false,
+    "_storeKitErrors" : [
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Load Products"
+      }
+    ]
+  }
+}
