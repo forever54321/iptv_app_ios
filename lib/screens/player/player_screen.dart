@@ -327,7 +327,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                                 ),
                                 iconSize: _isMobile ? 32 : 28,
                                 onPressed: () async {
-                                  if (!ref.read(isProProvider)) {
+                                  if (!ref.read(hasProAccessProvider)) {
                                     context.push('/paywall');
                                     return;
                                   }

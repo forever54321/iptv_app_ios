@@ -486,7 +486,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Widget _buildProSection(BuildContext context) {
     final isPro = ref.watch(isProProvider);
     final product = ProService.instance.product;
-    final price = product?.price ?? '\$3.99';
+    final price = product == null ? '' : ' — ${product.price} one-time';
+    final pro = ProService.instance;
 
     if (isPro) {
       return Padding(
@@ -549,7 +550,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               fontWeight: FontWeight.bold)),
                       const SizedBox(height: 2),
                       Text(
-                        'EPG · Recording · Favorites · Parental Lock — $price one-time',
+                        pro.isInTrial
+                            ? '${ProTrial.label(pro.trialDaysLeft)} · tap to keep Pro$price'
+                            : 'EPG · Recording · Favorites · Parental Lock$price',
                         style: const TextStyle(
                             color: Colors.white70, fontSize: 12),
                       ),

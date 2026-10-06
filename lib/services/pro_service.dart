@@ -4,9 +4,35 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:hive/hive.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+/// Pure free-week rules — no plugins, so tests can check them.
+class ProTrial {
+  static const days = 7;
+
+  static DateTime endsAt(DateTime start) => start.add(const Duration(days: days));
+
+  /// Active from [start] for 7 days. A clock set back more than a day before
+  /// the start doesn't keep it alive.
+  static bool isActive(DateTime? start, DateTime now) {
+    if (start == null) return false;
+    return !now.isBefore(start.subtract(const Duration(days: 1))) &&
+        now.isBefore(endsAt(start));
+  }
+
+  static int daysLeft(DateTime? start, DateTime now) {
+    if (start == null) return 0;
+    final left = endsAt(start).difference(now);
+    if (left.isNegative) return 0;
+    return (left.inMinutes / (24 * 60)).ceil();
+  }
+
+  static String label(int daysLeft) =>
+      daysLeft <= 1 ? 'Free Pro week: last day' : 'Free Pro week: $daysLeft days left';
+}
 
 class ProService {
   static const String productId = 'com.iptvapp.player.pro_unlock';
@@ -32,14 +58,59 @@ class ProService {
   final _iap = InAppPurchase.instance;
   StreamSubscription<List<PurchaseDetails>>? _sub;
 
+  /// Pro is owned (bought, restored, grandfathered or promo code).
   final ValueNotifier<bool> isPro = ValueNotifier(false);
+
+  /// What every Pro gate checks: owned OR inside the free week.
+  final ValueNotifier<bool> hasAccess = ValueNotifier(false);
+
+  /// First launch of a trial-aware build. Kept in the Keychain so deleting
+  /// and reinstalling doesn't restart the week. Deliberately not the App
+  /// Store receipt date — that's a placeholder in TestFlight/App Review.
+  DateTime? trialStart;
+  static const _trialKey = 'pro_trial_start';
+  Timer? _trialTimer;
+
+  bool get isInTrial => !isPro.value && ProTrial.isActive(trialStart, DateTime.now());
+  bool get trialEnded => !isPro.value && trialStart != null && !isInTrial;
+  int get trialDaysLeft => ProTrial.daysLeft(trialStart, DateTime.now());
+
+  void _refreshAccess() {
+    hasAccess.value = isPro.value || ProTrial.isActive(trialStart, DateTime.now());
+  }
+
+  Future<void> _startTrialIfNeeded(SharedPreferences prefs) async {
+    String? raw;
+    const secure = FlutterSecureStorage();
+    try {
+      raw = await secure.read(key: _trialKey);
+    } catch (_) {}
+    raw ??= prefs.getString(_trialKey);
+    trialStart = raw == null ? null : DateTime.tryParse(raw);
+    if (trialStart == null) {
+      trialStart = DateTime.now();
+      final v = trialStart!.toUtc().toIso8601String();
+      try {
+        await secure.write(key: _trialKey, value: v);
+      } catch (_) {}
+      await prefs.setString(_trialKey, v);
+    }
+    _trialTimer ??= Timer.periodic(const Duration(minutes: 10), (_) => _refreshAccess());
+  }
   ProductDetails? _product;
   ProductDetails? get product => _product;
 
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
     isPro.value = prefs.getBool(_isProKey) ?? false;
+    isPro.addListener(_refreshAccess);
+    await _startTrialIfNeeded(prefs);
+    _refreshAccess();
 
+    // Buyers always keep Pro: silently re-find an owned purchase first.
+    if (!isPro.value) {
+      await _checkOwnedPurchase();
+    }
     if (!isPro.value) {
       await _checkLegacyPaidUser(prefs);
     }
@@ -105,6 +176,14 @@ class ProService {
     }
   }
 
+  Future<void> _checkOwnedPurchase() async {
+    if (!Platform.isIOS) return;
+    try {
+      final owned = await _channel.invokeMethod<bool>('ownsProduct', productId);
+      if (owned == true) await _setPro(true);
+    } catch (_) {}
+  }
+
   static bool _isOlderThanFreeEra(String version) {
     final v = _parseVersion(version);
     final cutoff = _parseVersion(_firstFreeVersion);
@@ -132,6 +211,7 @@ class ProService {
   /// to authenticate with Apple ID if not already signed into App Store.
   Future<void> restore() async {
     await _iap.restorePurchases();
+    if (!isPro.value) await _checkOwnedPurchase();
 
     if (!isPro.value) {
       final prefs = await SharedPreferences.getInstance();
@@ -189,5 +269,6 @@ class ProService {
 
   void dispose() {
     _sub?.cancel();
+    _trialTimer?.cancel();
   }
 }

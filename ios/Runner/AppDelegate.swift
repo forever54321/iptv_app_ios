@@ -32,10 +32,30 @@ import UserNotifications
           AppDelegate.fetchOriginalAppVersion(refresh: false, callback: callback)
         } else if call.method == "refreshOriginalAppVersion" {
           AppDelegate.fetchOriginalAppVersion(refresh: true, callback: callback)
+        } else if call.method == "ownsProduct", let id = call.arguments as? String {
+          AppDelegate.ownsProduct(id, callback: callback)
         } else {
           callback(FlutterMethodNotImplemented)
         }
       }
+    }
+  }
+
+  /// StoreKit 2: does this Apple ID currently own `id` (not refunded)?
+  /// Lets a buyer keep Pro after a reinstall without tapping Restore.
+  static func ownsProduct(_ id: String, callback: @escaping FlutterResult) {
+    if #available(iOS 15.0, *) {
+      Task {
+        for await result in Transaction.currentEntitlements {
+          if case .verified(let tx) = result, tx.productID == id, tx.revocationDate == nil {
+            callback(true)
+            return
+          }
+        }
+        callback(false)
+      }
+    } else {
+      callback(false)
     }
   }
 

@@ -25,7 +25,7 @@ class ProGate extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return ref.watch(isProProvider) ? child : const PaywallScreen();
+    return ref.watch(hasProAccessProvider) ? child : const PaywallScreen();
   }
 }
 

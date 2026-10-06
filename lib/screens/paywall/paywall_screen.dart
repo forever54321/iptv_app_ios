@@ -22,7 +22,7 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
     }
 
     final product = ProService.instance.product;
-    final price = product?.price ?? '\$3.99';
+    final pro = ProService.instance;
 
     return Scaffold(
       appBar: AppBar(
@@ -75,6 +75,19 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.white70),
               ),
+              if (pro.isInTrial || pro.trialEnded) ...[
+                const SizedBox(height: 8),
+                Text(
+                  pro.isInTrial
+                      ? '${ProTrial.label(pro.trialDaysLeft)} — keep everything after it with Unlock Pro'
+                      : 'Your free Pro week has ended',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: pro.isInTrial ? Colors.greenAccent : Colors.orangeAccent,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
               const SizedBox(height: 28),
               _feature(Icons.tv, 'EPG Program Guide',
                   'Traditional TV guide with now-playing highlight'),
@@ -102,7 +115,7 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
                           height: 22,
                           child: CircularProgressIndicator(
                               strokeWidth: 2, color: Colors.white))
-                      : Text('Unlock Pro — $price',
+                      : Text(product == null ? 'Unlock Pro' : 'Unlock Pro — ${product.price}',
                           style: const TextStyle(
                               fontSize: 17, fontWeight: FontWeight.w600)),
                 ),
