@@ -9,6 +9,10 @@ class PlaylistFetchService {
 
   static void clearCache() => _sessionCache.clear();
 
+  /// Approximate bytes held by this session's downloaded playlists.
+  static int get cacheSizeBytes =>
+      _sessionCache.values.fold(0, (sum, body) => sum + body.length);
+
   static Future<String> fetch(String url, {bool force = false}) async {
     if (!force) {
       final cached = _sessionCache[url];

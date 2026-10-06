@@ -3,6 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../../services/parental_pin_service.dart';
 import '../../l10n/app_strings.dart';
 import '../../providers/channel_list_provider.dart';
 import '../../services/playlist_fetch_service.dart';
@@ -26,22 +31,48 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  String _playlistSize = '';
+  String _epgSize = '';
+  String _imageSize = '';
+  String _version = '';
+
   @override
   void initState() {
     super.initState();
-    _loadSettings();
+    _refreshSizes();
+    PackageInfo.fromPlatform().then((i) {
+      if (mounted) setState(() => _version = '${i.version} (${i.buildNumber})');
+    });
   }
 
-  Future<void> _loadSettings() async {
-    final prefs = await SharedPreferences.getInstance();
-    ref.read(recentChannelsProvider.notifier).state =
-        prefs.getBool('recent_channels') ?? true;
-    ref.read(organizeByGroupsProvider.notifier).state =
-        prefs.getBool('organize_by_groups') ?? true;
-    final hasPin = prefs.getString('parental_pin');
-    ref.read(parentalControlProvider.notifier).state = hasPin != null && hasPin.isNotEmpty;
-    ref.read(defaultAspectRatioProvider.notifier).state =
-        prefs.getString('aspect_ratio') ?? '16:9';
+  static String _fmt(int bytes) {
+    if (bytes <= 0) return '0 KB';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).ceil()} KB';
+    final mb = bytes / (1024 * 1024);
+    return mb < 10 ? '${mb.toStringAsFixed(1)} MB' : '${mb.round()} MB';
+  }
+
+  static Future<int> _dirSize(Directory dir) async {
+    if (!await dir.exists()) return 0;
+    var total = 0;
+    await for (final e in dir.list(recursive: true, followLinks: false)) {
+      if (e is File) {
+        try { total += await e.length(); } catch (_) {}
+      }
+    }
+    return total;
+  }
+
+  Future<void> _refreshSizes() async {
+    final epg = await EpgService.cacheSizeBytes();
+    final tmp = await getTemporaryDirectory();
+    final images = await _dirSize(Directory('${tmp.path}/${DefaultCacheManager.key}'));
+    if (!mounted) return;
+    setState(() {
+      _playlistSize = _fmt(PlaylistFetchService.cacheSizeBytes);
+      _epgSize = _fmt(epg);
+      _imageSize = _fmt(images);
+    });
   }
 
   Future<void> _saveBool(String key, bool value) async {
@@ -71,196 +102,284 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         title: Text(S.settings(lang)),
       ),
       body: ListView(
+        padding: const EdgeInsets.only(bottom: 40),
         children: [
           _buildProSection(context),
-          _buildSectionHeader(S.playback(lang)),
-          _buildSwitchTile(
+          _header(S.generalSettings(lang)),
+          _row(
             icon: Icons.history,
             title: S.recentChannels(lang),
-            value: recentChannels,
-            onChanged: (v) {
+            trailing: _switch(recentChannels, (v) {
               ref.read(recentChannelsProvider.notifier).state = v;
               _saveBool('recent_channels', v);
-            },
+            }),
           ),
-          _buildActionTile(
-            icon: Icons.clear_all,
-            title: S.clearHistory(lang),
-            onTap: () {
+          _row(
+            icon: Icons.cleaning_services_outlined,
+            title: S.clearRecentData(lang),
+            onTap: () async {
+              final ok = await _confirm(context, S.clearRecentData(lang));
+              if (!ok || !context.mounted) return;
               ref.read(recentChannelsListProvider.notifier).clear();
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('${S.clearHistory(lang)} ✓')),
-              );
+              _toast(context, '${S.clearRecentData(lang)} ✓');
             },
           ),
-          _buildActionTile(
-            icon: Icons.aspect_ratio,
-            title: S.aspectRatio(lang),
-            trailing: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.deepPurple.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                aspectRatio,
-                style: const TextStyle(color: Colors.deepPurple, fontSize: 13, fontWeight: FontWeight.w600),
-              ),
-            ),
-            onTap: () => _showAspectRatioDialog(context),
-          ),
-          _buildSectionHeader(S.channelList(lang)),
-          _buildSwitchTile(
+          _row(
             icon: Icons.folder_outlined,
-            title: S.groupByCategories(lang),
-            value: organizeByGroups,
-            onChanged: (v) {
+            title: S.organizeByGroups(lang),
+            trailing: _switch(organizeByGroups, (v) {
               ref.read(organizeByGroupsProvider.notifier).state = v;
               _saveBool('organize_by_groups', v);
-            },
+            }),
           ),
-          _buildNavigationTile(
+          _row(
+            icon: Icons.grid_view_outlined,
+            title: S.epgSettings(lang),
+            trailing: _chevron(),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const EpgSettingsScreen()),
+            ),
+          ),
+          _row(
             icon: Icons.language,
             title: S.appLanguage(lang),
-            subtitle: lang.displayName,
+            value: lang.displayName,
+            trailing: _chevron(),
             onTap: () => _showLanguagePicker(context),
           ),
-          _buildSectionHeader(S.security(lang)),
-          _buildNavigationTile(
-            icon: Icons.shield_outlined,
+          _row(
+            icon: Icons.lock_outline,
             title: S.parentalControl(lang),
-            subtitle: parentalControl ? 'PIN enabled' : 'Off',
-            onTap: () => context.go('/parental'),
+            // The switch opens the PIN screen either way: turning it on needs a
+            // PIN to be set, turning it off must not happen without the PIN.
+            trailing: _switch(parentalControl, (_) => _openParental(context)),
+            onTap: () => _openParental(context),
           ),
-          _buildSectionHeader('EPG / PROGRAM GUIDE'),
-          _buildNavigationTile(
-            icon: Icons.schedule,
-            title: 'EPG URL',
-            subtitle: 'Auto-detected from playlist',
-            onTap: () => _showEpgUrlDialog(context),
+          _header(S.playerSettings(lang)),
+          _row(
+            icon: Icons.aspect_ratio,
+            title: S.aspectRatio(lang),
+            value: aspectRatio,
+            onTap: () => _showAspectRatioDialog(context),
           ),
-          _buildActionTile(
-            icon: Icons.refresh,
-            title: 'Refresh EPG Now',
-            onTap: () {
-              ref.read(epgProvider.notifier).refresh();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Refreshing EPG data...')),
-              );
-            },
-          ),
-          _buildActionTile(
+          _header(S.cacheSection(lang)),
+          _row(
             icon: Icons.delete_outline,
-            title: 'Clear EPG Cache',
-            onTap: () async {
-              await EpgService.clearCache();
-              ref.invalidate(epgProvider);
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('EPG cache cleared')),
-                );
-              }
-            },
-          ),
-          _buildSectionHeader(S.storage(lang)),
-          _buildActionTile(
-            icon: Icons.cleaning_services_outlined,
             title: S.clearPlaylistsCache(lang),
+            value: _playlistSize,
             onTap: () {
               PlaylistFetchService.clearCache();
               ref.invalidate(channelListProvider);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('${S.clearPlaylistsCache(lang)} ✓')),
-              );
+              _refreshSizes();
+              _toast(context, '${S.clearPlaylistsCache(lang)} ✓');
             },
           ),
-          _buildActionTile(
-            icon: Icons.image_not_supported_outlined,
+          _row(
+            icon: Icons.delete_outline,
+            title: S.clearEpgCache(lang),
+            value: _epgSize,
+            onTap: () async {
+              await EpgService.clearCache();
+              ref.invalidate(epgProvider);
+              await _refreshSizes();
+              if (context.mounted) _toast(context, '${S.clearEpgCache(lang)} ✓');
+            },
+          ),
+          _row(
+            icon: Icons.delete_outline,
             title: S.clearImagesCache(lang),
+            value: _imageSize,
             onTap: () async {
               await DefaultCacheManager().emptyCache();
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('${S.clearImagesCache(lang)} ✓')),
-                );
-              }
+              await _refreshSizes();
+              if (context.mounted) _toast(context, '${S.clearImagesCache(lang)} ✓');
             },
           ),
-          _buildSectionHeader('PURCHASES'),
+          _header(S.more(lang)),
+          _row(
+            icon: Icons.help_outline,
+            title: S.customerSupport(lang),
+            trailing: _chevron(),
+            onTap: () => _contactSupport(context),
+          ),
           if (!ref.watch(isProProvider))
-            _buildActionTile(
-              icon: Icons.local_offer,
+            _row(
+              icon: Icons.local_offer_outlined,
               title: 'Redeem Promo Code',
+              trailing: _chevron(),
               onTap: () => _showPromoCodeDialog(context),
             ),
-          _buildActionTile(
+          _row(
             icon: Icons.restore,
             title: 'Restore Purchase',
-            onTap: () async {
-              ScaffoldMessenger.of(context).clearSnackBars();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Restoring…'),
-                  duration: Duration(seconds: 2),
-                ),
-              );
-              await ProService.instance.restore();
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).clearSnackBars();
-                if (ref.read(isProProvider)) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Pro restored ✓')),
-                  );
-                } else {
-                  showDialog(
-                    context: context,
-                    builder: (_) => AlertDialog(
-                      title: const Text('Restore Result'),
-                      content: Text(ProService.instance.diagnosticMessage()),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: const Text('OK'),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-              }
-            },
+            onTap: () => _restorePurchase(context),
           ),
-          _buildSectionHeader(S.about(lang)),
-          _buildNavigationTile(
-            icon: Icons.celebration,
+          _row(
+            icon: Icons.celebration_outlined,
             title: "What's New",
-            subtitle: 'See new features in v4.1',
+            trailing: _chevron(),
             onTap: () => context.go('/whats-new-settings'),
           ),
-          _buildNavigationTile(
-            icon: Icons.info_outline,
-            title: 'IPTV Stream Player',
-            subtitle: 'Version 4.1.2',
-            onTap: () {
-              showAboutDialog(
-                context: context,
-                applicationName: 'IPTV Stream Player',
-                applicationVersion: '4.1.2',
-                applicationLegalese: '© 2026 IPTV App. All rights reserved.',
-              );
-            },
-          ),
-          _buildNavigationTile(
+          _row(
             icon: Icons.description_outlined,
             title: S.termsOfUse(lang),
+            trailing: _chevron(),
             onTap: () => context.go('/'),
           ),
-          _buildNavigationTile(
+          _row(
             icon: Icons.privacy_tip_outlined,
             title: S.privacyPolicy(lang),
+            trailing: _chevron(),
             onTap: () => context.go('/privacy'),
           ),
-          const SizedBox(height: 40),
+          _row(
+            icon: Icons.info_outline,
+            title: S.about(lang),
+            value: _version.isEmpty ? '' : 'v$_version',
+            onTap: () => showAboutDialog(
+              context: context,
+              applicationName: 'IPTV Stream Player',
+              applicationVersion: _version,
+              applicationLegalese: '© 2026 IPTV App. All rights reserved.',
+            ),
+          ),
         ],
+      ),
+    );
+  }
+
+  // ── actions ──────────────────────────────────────────────────────────
+
+  Future<void> _openParental(BuildContext context) async {
+    await context.push('/parental');
+    final hasPin = await ParentalPinService.hasPin();
+    if (mounted) ref.read(parentalControlProvider.notifier).state = hasPin;
+  }
+
+  Future<void> _contactSupport(BuildContext context) async {
+    final uri = Uri(
+      scheme: 'mailto',
+      path: 'IPTV@zakari.me',
+      queryParameters: {'subject': 'IPTV Stream Player support (v$_version)'},
+    );
+    final ok = await launchUrl(uri);
+    if (!ok && context.mounted) {
+      _toast(context, 'Email us at IPTV@zakari.me');
+    }
+  }
+
+  Future<void> _restorePurchase(BuildContext context) async {
+    ScaffoldMessenger.of(context).clearSnackBars();
+    _toast(context, 'Restoring…');
+    await ProService.instance.restore();
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).clearSnackBars();
+    if (ref.read(isProProvider)) {
+      _toast(context, 'Pro restored ✓');
+    } else {
+      showDialog(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Restore Result'),
+          content: Text(ProService.instance.diagnosticMessage()),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+  Future<bool> _confirm(BuildContext context, String title) async {
+    final r = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text('$title?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c, false), child: Text(S.cancel(ref.read(appLanguageProvider)))),
+          FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('OK')),
+        ],
+      ),
+    );
+    return r ?? false;
+  }
+
+  void _toast(BuildContext context, String text) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  }
+
+  // ── row styling (matches the reference: dark rounded rows, grey values) ──
+
+  static const _rowColor = Color(0xFF141416);
+  static const _accent = Color(0xFF1E9BFF);
+
+  Widget _header(String title) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 26, 20, 10),
+        child: Text(
+          title,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: Colors.grey.shade500,
+            letterSpacing: 0.6,
+          ),
+        ),
+      );
+
+  Widget _chevron() => Icon(Icons.chevron_right, color: Colors.grey.shade600);
+
+  Widget _switch(bool value, ValueChanged<bool> onChanged) => Switch(
+        value: value,
+        onChanged: onChanged,
+        activeColor: Colors.white,
+        activeTrackColor: _accent,
+        inactiveThumbColor: Colors.white,
+        inactiveTrackColor: const Color(0xFF3A3A3C),
+        trackOutlineColor: WidgetStateProperty.all(Colors.transparent),
+      );
+
+  Widget _row({
+    required IconData icon,
+    required String title,
+    String? value,
+    Widget? trailing,
+    VoidCallback? onTap,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+      child: Material(
+        color: _rowColor,
+        borderRadius: BorderRadius.circular(16),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 58),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              child: Row(
+                children: [
+                  Icon(icon, color: Colors.grey.shade400, size: 22),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Text(title,
+                        style: const TextStyle(fontSize: 16, color: Colors.white),
+                        overflow: TextOverflow.ellipsis),
+                  ),
+                  if (value != null && value.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 8, right: 4),
+                      child: Text(value, style: TextStyle(fontSize: 15, color: Colors.grey.shade500)),
+                    ),
+                  if (trailing != null) trailing,
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -428,137 +547,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  Widget _buildSectionHeader(String title) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 28, 16, 8),
-      child: Text(
-        title,
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-          color: Colors.deepPurple.shade300,
-          letterSpacing: 1.2,
-        ),
-      ),
-    );
-  }
 
-  Widget _buildSwitchTile({
-    required IconData icon,
-    required String title,
-    required bool value,
-    required ValueChanged<bool> onChanged,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
-      child: Card(
-        margin: EdgeInsets.zero,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: SwitchListTile(
-          secondary: Icon(icon, color: Colors.deepPurple.shade200),
-          title: Text(title),
-          value: value,
-          onChanged: onChanged,
-          activeColor: Colors.deepPurple,
-        ),
-      ),
-    );
-  }
 
-  Widget _buildActionTile({
-    required IconData icon,
-    required String title,
-    Widget? trailing,
-    required VoidCallback onTap,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
-      child: Card(
-        margin: EdgeInsets.zero,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: ListTile(
-          leading: Icon(icon, color: Colors.deepPurple.shade200),
-          title: Text(title),
-          trailing: trailing,
-          onTap: onTap,
-        ),
-      ),
-    );
-  }
 
-  Widget _buildNavigationTile({
-    required IconData icon,
-    required String title,
-    String? subtitle,
-    required VoidCallback onTap,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
-      child: Card(
-        margin: EdgeInsets.zero,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: ListTile(
-          leading: Icon(icon, color: Colors.deepPurple.shade200),
-          title: Text(title),
-          subtitle: subtitle != null
-              ? Text(subtitle, style: TextStyle(fontSize: 12, color: Colors.grey.shade500))
-              : null,
-          trailing: Icon(Icons.chevron_right, color: Colors.grey.shade600),
-          onTap: onTap,
-        ),
-      ),
-    );
-  }
 
-  void _showEpgUrlDialog(BuildContext context) {
-    final controller = TextEditingController();
-    EpgService.getManualUrl().then((url) {
-      controller.text = url ?? '';
-    });
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('EPG URL'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Leave empty to auto-detect from playlist header.\nOr enter a custom XMLTV EPG URL:',
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade400),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: controller,
-              decoration: InputDecoration(
-                hintText: 'http://example.com/epg.xml',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () async {
-              final url = controller.text.trim();
-              await EpgService.setManualUrl(url.isEmpty ? null : url);
-              ref.invalidate(epgUrlProvider);
-              ref.invalidate(epgProvider);
-              if (context.mounted) {
-                Navigator.pop(context);
-                context.go('/epg');
-              }
-            },
-            child: const Text('Save & Open EPG'),
-          ),
-        ],
-      ),
-    );
-  }
+
+
+
 
   void _showAspectRatioDialog(BuildContext context) {
     showDialog(
@@ -580,5 +575,86 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         }).toList(),
       ),
     );
+  }
+}
+
+
+/// Settings → EPG Settings: where the program guide comes from and refreshing it.
+class EpgSettingsScreen extends ConsumerWidget {
+  const EpgSettingsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final lang = ref.watch(appLanguageProvider);
+    Widget row(IconData icon, String title, String? sub, VoidCallback onTap) => Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+          child: Material(
+            color: const Color(0xFF141416),
+            borderRadius: BorderRadius.circular(16),
+            clipBehavior: Clip.antiAlias,
+            child: ListTile(
+              leading: Icon(icon, color: Colors.grey.shade400),
+              title: Text(title),
+              subtitle: sub == null ? null : Text(sub, style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+              trailing: Icon(Icons.chevron_right, color: Colors.grey.shade600),
+              onTap: onTap,
+            ),
+          ),
+        );
+    return Scaffold(
+      appBar: AppBar(title: Text(S.epgSettings(lang))),
+      body: ListView(
+        padding: const EdgeInsets.only(top: 12),
+        children: [
+          row(Icons.link, 'EPG URL', 'Auto-detected from playlist, or set your own', () => _editUrl(context, ref)),
+          row(Icons.refresh, 'Refresh EPG Now', null, () {
+            ref.read(epgProvider.notifier).refresh();
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Refreshing EPG data...')));
+          }),
+          row(Icons.view_timeline_outlined, 'Open Program Guide', null, () => context.go('/epg')),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _editUrl(BuildContext context, WidgetRef ref) async {
+    final controller = TextEditingController(text: await EpgService.getManualUrl() ?? '');
+    if (!context.mounted) return;
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('EPG URL'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Leave empty to auto-detect from the playlist header, or enter an XMLTV EPG URL:',
+                style: TextStyle(fontSize: 13, color: Colors.grey.shade400)),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              keyboardType: TextInputType.url,
+              autocorrect: false,
+              decoration: InputDecoration(
+                hintText: 'http://example.com/epg.xml',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Save')),
+        ],
+      ),
+    );
+    if (saved != true) return;
+    final url = controller.text.trim();
+    await EpgService.setManualUrl(url.isEmpty ? null : url);
+    ref.invalidate(epgUrlProvider);
+    ref.invalidate(epgProvider);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('EPG URL saved')));
+    }
   }
 }

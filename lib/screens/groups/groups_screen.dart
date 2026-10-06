@@ -6,9 +6,12 @@ import '../../providers/category_filter_provider.dart';
 import '../../providers/channel_list_provider.dart';
 import '../../services/playlist_fetch_service.dart';
 import 'package:flutter/services.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../l10n/app_strings.dart';
+import '../../core/glass.dart';
+import '../channels/channels_screen.dart';
+import '../player/player_screen.dart';
 import '../../providers/recent_channels_provider.dart';
+import '../../services/parental_pin_service.dart';
 import '../../screens/settings/settings_screen.dart';
 import '../../screens/settings/parental_control_screen.dart';
 import '../../widgets/loading_widget.dart';
@@ -150,7 +153,8 @@ class GroupsScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: channelsAsync.when(
+      body: GlossyBackground(
+          child: channelsAsync.when(
         loading: () => const LoadingWidget(message: 'Loading channels...'),
         error: (err, _) => ErrorDisplay(
           message: err.toString(),
@@ -193,7 +197,7 @@ class GroupsScreen extends ConsumerWidget {
                   icon: Icons.history,
                   title: 'Recent',
                   subtitle: '${recentChannels.length} channels',
-                  color: Colors.orange,
+                  color: AppColors.amber,
                   onTap: () => context.go('/recent'),
                 ),
                 const SizedBox(height: 12),
@@ -204,7 +208,7 @@ class GroupsScreen extends ConsumerWidget {
                 icon: Icons.schedule,
                 title: 'Program Guide',
                 subtitle: 'EPG - What\'s on now',
-                color: Colors.blue,
+                color: AppColors.sky,
                 onTap: () => context.go('/epg'),
               ),
               const SizedBox(height: 12),
@@ -214,7 +218,7 @@ class GroupsScreen extends ConsumerWidget {
                 icon: Icons.live_tv,
                 title: 'Live Channels',
                 subtitle: '$liveCount channels',
-                color: Colors.red,
+                color: AppColors.rose,
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -234,7 +238,7 @@ class GroupsScreen extends ConsumerWidget {
                 icon: Icons.movie_outlined,
                 title: 'Movies',
                 subtitle: '$movieCount items',
-                color: Colors.deepPurple,
+                color: AppColors.violet,
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -254,7 +258,7 @@ class GroupsScreen extends ConsumerWidget {
                 icon: Icons.tv,
                 title: 'Shows',
                 subtitle: '$showCount items',
-                color: Colors.teal,
+                color: AppColors.teal,
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -274,7 +278,7 @@ class GroupsScreen extends ConsumerWidget {
                 icon: Icons.folder_outlined,
                 title: S.allChannels(lang),
                 subtitle: '${allChannels.length} total',
-                color: Colors.blueGrey,
+                color: AppColors.slate,
                 onTap: () {
                   ref.read(selectedCategoryProvider.notifier).state = null;
                   context.go('/channels');
@@ -283,7 +287,7 @@ class GroupsScreen extends ConsumerWidget {
             ],
           );
         },
-      ),
+      )),
     );
   }
 }
@@ -305,40 +309,30 @@ class _CategoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Row(
-            children: [
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(14),
+    return GlossyCard(
+      onTap: onTap,
+      glow: color,
+      radius: 18,
+      padding: const EdgeInsets.all(18),
+      child: Row(
+        children: [
+          GlossyIconBadge(icon: icon, color: color),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(fontSize: 17.5, fontWeight: FontWeight.w700, letterSpacing: 0.1),
                 ),
-                child: Icon(icon, color: color, size: 28),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 4),
-                    Text(subtitle, style: TextStyle(fontSize: 13, color: Colors.grey.shade400)),
-                  ],
-                ),
-              ),
-              Icon(Icons.chevron_right, color: Colors.grey.shade600),
-            ],
+                const SizedBox(height: 3),
+                Text(subtitle, style: TextStyle(fontSize: 12.5, color: Colors.white.withValues(alpha: 0.52))),
+              ],
+            ),
           ),
-        ),
+          Icon(Icons.chevron_right_rounded, color: Colors.white.withValues(alpha: 0.35)),
+        ],
       ),
     );
   }
@@ -494,7 +488,11 @@ class _SectionGroupsScreenState extends ConsumerState<_SectionGroupsScreen> {
                 final idx = allChannels.indexWhere((c) => c.url == channel.url);
                 if (idx >= 0) {
                   ref.read(selectedCategoryProvider.notifier).state = null;
-                  context.go('/player', extra: {'initialIndex': idx});
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => PlayerScreen(initialChannelIndex: idx),
+                    ),
+                  );
                 }
               },
             ),
@@ -537,7 +535,13 @@ class _SectionGroupsScreenState extends ConsumerState<_SectionGroupsScreen> {
               if (!unlocked) return;
             }
             ref.read(selectedCategoryProvider.notifier).state = group;
-            if (context.mounted) context.go('/channels');
+            // Push rather than go(): go() replaces the whole router stack, which
+            // would discard this folder list and send Back to the section menu.
+            if (context.mounted) {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ChannelsScreen()),
+              );
+            }
           },
         );
       },
@@ -580,9 +584,12 @@ class _SectionGroupsScreenState extends ConsumerState<_SectionGroupsScreen> {
           ),
           FilledButton(
             onPressed: () async {
-              final prefs = await SharedPreferences.getInstance();
-              final savedPin = prefs.getString('parental_pin');
-              if (pinCtrl.text == savedPin) {
+              // The PIN is stored as a salted hash (ParentalPinService); the
+              // old plaintext key is deleted on migration, so comparing with it
+              // made every locked group impossible to open.
+              final ok = await ParentalPinService.verifyPin(pinCtrl.text);
+              if (!context.mounted) return;
+              if (ok) {
                 Navigator.pop(context, true);
               } else {
                 pinCtrl.clear();
@@ -621,34 +628,28 @@ class _GroupTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final accent = isLocked ? AppColors.rose : AppColors.forName(name);
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
-      child: Card(
-        margin: EdgeInsets.zero,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          leading: Icon(icon, color: isLocked ? Colors.red.shade400 : Colors.grey.shade400),
-          title: Text(
-            name,
-            style: const TextStyle(fontWeight: FontWeight.w500),
-          ),
-          trailing: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.teal,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              _formatCount(count),
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 13,
-                color: Colors.white,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: GlossyCard(
+        onTap: onTap,
+        radius: 14,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          children: [
+            GlossyIconBadge(icon: icon, color: accent, size: 40, iconSize: 19),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15.5),
               ),
             ),
-          ),
-          onTap: onTap,
+            const SizedBox(width: 10),
+            GlossyCountChip(label: _formatCount(count)),
+          ],
         ),
       ),
     );

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:media_kit/media_kit.dart';
+import 'package:media_kit_video/media_kit_video.dart';
 import 'package:path_provider/path_provider.dart';
 import '../models/m3u_entry.dart';
 import 'category_filter_provider.dart';
@@ -49,8 +50,21 @@ class PlayerState {
 
 class PlayerNotifier extends Notifier<PlayerState> {
   late final Player _player;
+  VideoController? _videoController;
 
   Player get player => _player;
+
+  /// The single video output for [player].
+  ///
+  /// media_kit ties a VideoController's native listeners to the *player's*
+  /// lifetime — it has no `dispose()` of its own. Building one per player
+  /// screen therefore piled up mpv property observers on the one long-lived
+  /// player, and mpv eventually walked a freed observer while broadcasting
+  /// property changes (EXC_BAD_ACCESS in `mp_client_send_property_changes` on
+  /// the `*/mpv core` thread). Create it once, reuse it, let the player's own
+  /// disposal clean it up.
+  VideoController get videoController =>
+      _videoController ??= VideoController(_player);
 
   @override
   PlayerState build() {

@@ -11,12 +11,24 @@ import '../../providers/favorites_provider.dart';
 import '../../providers/epg_provider.dart';
 import '../../screens/settings/settings_screen.dart';
 import '../../services/download_service.dart';
+import '../../services/playlist_fetch_service.dart';
 import '../../widgets/loading_widget.dart';
+import '../../core/glass.dart';
+import '../player/player_screen.dart';
 import 'category_sidebar.dart';
 import 'channel_tile.dart';
 
 class ChannelsScreen extends ConsumerWidget {
   const ChannelsScreen({super.key});
+
+  /// Reset the shared search filter. Called only when leaving the channel list
+  /// back to home/groups — NOT when opening the player (the player relies on
+  /// `filteredChannelsProvider` staying in sync with the tapped index and for
+  /// next/previous navigation within the current search results).
+  void _clearSearch(WidgetRef ref) {
+    ref.read(searchQueryProvider.notifier).state = '';
+    ref.read(debouncedSearchProvider.notifier).state = '';
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -26,99 +38,133 @@ class ChannelsScreen extends ConsumerWidget {
     final screenWidth = MediaQuery.of(context).size.width;
     final isWideScreen = screenWidth >= 600;
 
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            final groupsOn = ref.read(organizeByGroupsProvider);
-            context.go(groupsOn ? '/groups' : '/home');
-          },
-        ),
-        title: Text(ref.watch(selectedCategoryProvider)?.name ?? S.allChannels(lang)),
-        actions: [
-          if (!isWideScreen)
-            IconButton(
-              icon: const Icon(Icons.filter_list),
-              onPressed: () => _showCategoryBottomSheet(context, ref),
-            ),
-          SizedBox(
-            width: isWideScreen ? 300 : screenWidth * 0.5,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: TextField(
-                decoration: InputDecoration(
-                  hintText: S.searchChannels(lang),
-                  prefixIcon: const Icon(Icons.search, size: 20),
-                  isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(24),
+    return PopScope(
+      // Clears the shared search filter when this screen is popped by the
+      // back button or an edge-swipe — but not when opening the player,
+      // which stays on top and relies on the filtered list.
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) _clearSearch(ref);
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () {
+              // Came here from a folder list: pop back to it. PopScope below
+              // clears the search filter on the way out.
+              final nav = Navigator.of(context);
+              if (nav.canPop()) {
+                nav.pop();
+                return;
+              }
+              _clearSearch(ref);
+              final groupsOn = ref.read(organizeByGroupsProvider);
+              context.go(groupsOn ? '/groups' : '/home');
+            },
+          ),
+          title: Text(ref.watch(selectedCategoryProvider)?.name ?? S.allChannels(lang)),
+          actions: [
+            if (!isWideScreen)
+              IconButton(
+                icon: const Icon(Icons.filter_list),
+                onPressed: () => _showCategoryBottomSheet(context, ref),
+              ),
+            SizedBox(
+              width: isWideScreen ? 300 : screenWidth * 0.5,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: TextField(
+                  decoration: InputDecoration(
+                    hintText: S.searchChannels(lang),
+                    prefixIcon: const Icon(Icons.search, size: 20),
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(24),
+                    ),
                   ),
+                  onChanged: (v) =>
+                      ref.read(searchQueryProvider.notifier).state = v,
                 ),
-                onChanged: (v) =>
-                    ref.read(searchQueryProvider.notifier).state = v,
               ),
             ),
-          ),
-          const SizedBox(width: 16),
-        ],
-      ),
-      body: channelsAsync.when(
-        loading: () => LoadingWidget(message: S.loadingChannels(lang)),
-        error: (err, _) => ErrorDisplay(
-          message: err.toString(),
-          onRetry: () => ref.invalidate(channelListProvider),
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              tooltip: S.refresh(lang),
+              onPressed: () {
+                // Manual reload: drop the in-memory playlist cache and re-fetch
+                // the channel list from the source (bypasses the session cache).
+                PlaylistFetchService.clearCache();
+                ref.invalidate(channelListProvider);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(S.reloadingChannels(lang)),
+                    duration: const Duration(seconds: 2),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              },
+            ),
+            const SizedBox(width: 16),
+          ],
         ),
-        data: (allChannels) {
-          if (allChannels.isEmpty) {
-            return Center(child: Text(S.noChannelsFound(lang)));
-          }
-
-          final filtered = ref.watch(filteredChannelsProvider);
-          final totalFiltered = ref.watch(filteredCountProvider);
-          final categories = ref.watch(categoriesProvider);
-          final selected = ref.watch(selectedCategoryProvider);
-
-          final groups = categories
-              .where((c) => c.type == CategoryType.group)
-              .toList();
-          final languages = categories
-              .where((c) => c.type == CategoryType.language)
-              .toList();
-
-          final gridExtent = isWideScreen ? 200.0 : 160.0;
-
-          // Build the channel content — always flat grid
-          // Groups screen handles the category browsing
-          Widget channelContent;
-          if (filtered.isEmpty) {
-            channelContent = Center(child: Text(S.noChannelsFound(lang)));
-          } else {
-            channelContent = _buildFlatGrid(
-              context, ref, filtered, gridExtent, lang,
-            );
-          }
-
-          if (isWideScreen) {
-            return Row(
-              children: [
-                CategorySidebar(
-                  groups: groups,
-                  languages: languages,
-                  selected: selected,
-                  totalCount: allChannels.length,
-                  onSelect: (cat) {
-                    ref.read(selectedCategoryProvider.notifier).state = cat;
-                  },
-                ),
-                Expanded(child: channelContent),
-              ],
-            );
-          }
-
-          return channelContent;
-        },
+        body: GlossyBackground(
+          child: channelsAsync.when(
+          loading: () => LoadingWidget(message: S.loadingChannels(lang)),
+          error: (err, _) => ErrorDisplay(
+            message: err.toString(),
+            onRetry: () => ref.invalidate(channelListProvider),
+          ),
+          data: (allChannels) {
+            if (allChannels.isEmpty) {
+              return Center(child: Text(S.noChannelsFound(lang)));
+            }
+  
+            final filtered = ref.watch(filteredChannelsProvider);
+            final totalFiltered = ref.watch(filteredCountProvider);
+            final categories = ref.watch(categoriesProvider);
+            final selected = ref.watch(selectedCategoryProvider);
+  
+            final groups = categories
+                .where((c) => c.type == CategoryType.group)
+                .toList();
+            final languages = categories
+                .where((c) => c.type == CategoryType.language)
+                .toList();
+  
+            final gridExtent = isWideScreen ? 200.0 : 160.0;
+  
+            // Build the channel content — always flat grid
+            // Groups screen handles the category browsing
+            Widget channelContent;
+            if (filtered.isEmpty) {
+              channelContent = Center(child: Text(S.noChannelsFound(lang)));
+            } else {
+              channelContent = _buildFlatGrid(
+                context, ref, filtered, gridExtent, lang,
+              );
+            }
+  
+            if (isWideScreen) {
+              return Row(
+                children: [
+                  CategorySidebar(
+                    groups: groups,
+                    languages: languages,
+                    selected: selected,
+                    totalCount: allChannels.length,
+                    onSelect: (cat) {
+                      ref.read(selectedCategoryProvider.notifier).state = cat;
+                    },
+                  ),
+                  Expanded(child: channelContent),
+                ],
+              );
+            }
+  
+            return channelContent;
+          },
+        )),
       ),
     );
   }
@@ -272,7 +318,12 @@ class ChannelsScreen extends ConsumerWidget {
       isVOD: isVod,
       nowPlaying: nowPlaying?.title,
       onTap: () {
-        context.go('/player', extra: {'initialIndex': index});
+        // Push so this list — and any folder list beneath it — survives.
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => PlayerScreen(initialChannelIndex: index),
+          ),
+        );
       },
       onLongPress: () {
         ref.read(favoritesProvider.notifier).toggle(channel);

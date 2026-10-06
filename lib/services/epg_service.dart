@@ -92,6 +92,12 @@ class EpgService {
     }
   }
 
+  /// Bytes used by the downloaded EPG file (0 when none).
+  static Future<int> cacheSizeBytes() async {
+    final f = await _getCacheFile();
+    return f.existsSync() ? await f.length() : 0;
+  }
+
   /// Clear EPG cache
   static Future<void> clearCache() async {
     final cacheFile = await _getCacheFile();

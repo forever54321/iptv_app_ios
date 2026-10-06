@@ -1,3 +1,4 @@
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -33,7 +34,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   void initState() {
     super.initState();
     final notifier = ref.read(playerProvider.notifier);
-    _videoController = VideoController(notifier.player);
+    // One shared controller owned by the provider — see PlayerNotifier.videoController.
+    _videoController = notifier.videoController;
     // Start playing the selected channel
     // On macOS, mpv needs a brief delay after initialization before playback
     Future.microtask(() async {
@@ -85,7 +87,15 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       ]);
       await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     }
-    if (mounted) context.go('/channels');
+    if (!mounted) return;
+    // Pop back to the list we were launched from (folder list, channel list or
+    // search results); only fall back to /channels when there's nothing to pop.
+    final nav = Navigator.of(context);
+    if (nav.canPop()) {
+      nav.pop();
+    } else {
+      context.go('/channels');
+    }
   }
 
   void _startHideTimer() {
@@ -476,6 +486,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     final current = ref.read(defaultAspectRatioProvider);
     final nextIndex = (ratios.indexOf(current) + 1) % ratios.length;
     ref.read(defaultAspectRatioProvider.notifier).state = ratios[nextIndex];
+    SharedPreferences.getInstance().then((p) => p.setString('aspect_ratio', ratios[nextIndex]));
 
     ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(

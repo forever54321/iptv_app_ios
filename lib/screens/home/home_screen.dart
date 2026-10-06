@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/glass.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../models/playlist_source.dart';
@@ -23,7 +24,8 @@ class HomeScreen extends ConsumerWidget {
         centerTitle: true,
       ),
       drawer: _AppDrawer(),
-      body: sourcesAsync.when(
+      body: GlossyBackground(
+        child: sourcesAsync.when(
         loading: () => const LoadingWidget(message: 'Loading playlists...'),
         error: (err, _) => ErrorDisplay(
           message: err.toString(),
@@ -61,7 +63,7 @@ class HomeScreen extends ConsumerWidget {
             },
           );
         },
-      ),
+      )),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddDialog(context, ref),
         child: const Icon(Icons.add),
@@ -205,21 +207,18 @@ class _PlaylistCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Card(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: source.isActive
-            ? BorderSide(color: Colors.deepPurple.shade300, width: 2)
-            : BorderSide.none,
-      ),
+    final accent = source.isActive ? AppColors.violet : AppColors.slate;
+    return GlossyCard(
+      radius: 15,
+      padding: EdgeInsets.zero,
+      glow: source.isActive ? AppColors.violet : null,
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: CircleAvatar(
-          backgroundColor: source.isActive ? Colors.deepPurple : Colors.grey.shade800,
-          child: Icon(
-            source.type == PlaylistType.xtreamCodes ? Icons.dns : Icons.link,
-            color: Colors.white,
-          ),
+        leading: GlossyIconBadge(
+          icon: source.type == PlaylistType.xtreamCodes ? Icons.dns_rounded : Icons.link_rounded,
+          color: accent,
+          size: 44,
+          iconSize: 21,
         ),
         title: Text(
           source.name,
@@ -235,13 +234,7 @@ class _PlaylistCard extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (source.isActive)
-              Chip(
-                label: const Text('Active', style: TextStyle(fontSize: 11)),
-                backgroundColor: Colors.deepPurple.shade800,
-                side: BorderSide.none,
-                padding: EdgeInsets.zero,
-                visualDensity: VisualDensity.compact,
-              ),
+              const GlossyCountChip(label: 'Active', color: AppColors.violet),
             PopupMenuButton<String>(
               onSelected: (value) => _onMenuAction(value, context, ref),
               itemBuilder: (_) => [

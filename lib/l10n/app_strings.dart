@@ -130,6 +130,22 @@ class S {
     'zh': '搜索频道...', 'hi': 'चैनल खोजें...', 'ja': 'チャンネル検索...', 'ko': '채널 검색...',
     'it': 'Cerca canali...', 'nl': 'Kanalen zoeken...', 'sv': 'Sök kanaler...',
   });
+  static String refresh(AppLanguage l) => _t(l, {
+    'en': 'Refresh', 'ar': 'تحديث', 'fr': 'Actualiser', 'es': 'Actualizar',
+    'de': 'Aktualisieren', 'pt': 'Atualizar', 'tr': 'Yenile', 'ru': 'Обновить',
+    'zh': '刷新', 'hi': 'रीफ़्रेश करें', 'ja': '更新', 'ko': '새로고침',
+    'it': 'Aggiorna', 'nl': 'Vernieuwen', 'sv': 'Uppdatera',
+  });
+  static String reloadingChannels(AppLanguage l) => _t(l, {
+    'en': 'Clearing cache & reloading channels…', 'ar': 'مسح الذاكرة المؤقتة وإعادة تحميل القنوات…',
+    'fr': 'Vidage du cache et rechargement…', 'es': 'Borrando caché y recargando canales…',
+    'de': 'Cache leeren & Kanäle neu laden…', 'pt': 'Limpando cache e recarregando canais…',
+    'tr': 'Önbellek temizleniyor ve kanallar yenileniyor…', 'ru': 'Очистка кэша и перезагрузка каналов…',
+    'zh': '正在清除缓存并重新加载频道…', 'hi': 'कैश साफ़ करके चैनल पुनः लोड हो रहे हैं…',
+    'ja': 'キャッシュを消去してチャンネルを再読み込み中…', 'ko': '캐시 지우고 채널 다시 불러오는 중…',
+    'it': 'Cancellazione cache e ricarica canali…', 'nl': 'Cache wissen & kanalen herladen…',
+    'sv': 'Rensar cache & laddar om kanaler…',
+  });
   static String noChannelsFound(AppLanguage l) => _t(l, {
     'en': 'No channels found.', 'ar': 'لم يتم العثور على قنوات.', 'fr': 'Aucune chaîne trouvée.',
     'es': 'No se encontraron canales.', 'de': 'Keine Kanäle gefunden.', 'pt': 'Nenhum canal encontrado.',
@@ -234,6 +250,49 @@ class S {
     'tr': 'Varsayılan En-Boy Oranı', 'ru': 'Соотношение сторон', 'zh': '默认宽高比',
     'hi': 'डिफ़ॉल्ट पहलू अनुपात', 'ja': 'デフォルトアスペクト比', 'ko': '기본 화면 비율',
     'it': 'Rapporto aspetto', 'nl': 'Standaard beeldverhouding', 'sv': 'Standard bildförhållande',
+  });
+  static String generalSettings(AppLanguage l) => _t(l, {
+    'en': 'GENERAL SETTINGS', 'ar': 'الإعدادات العامة', 'fr': 'PARAMÈTRES GÉNÉRAUX', 'es': 'AJUSTES GENERALES',
+    'de': 'ALLGEMEINE EINSTELLUNGEN', 'pt': 'CONFIGURAÇÕES GERAIS', 'tr': 'GENEL AYARLAR', 'ru': 'ОБЩИЕ НАСТРОЙКИ', 'zh': '常规设置',
+    'hi': 'सामान्य सेटिंग्स', 'ja': '一般設定', 'ko': '일반 설정', 'it': 'IMPOSTAZIONI GENERALI', 'nl': 'ALGEMENE INSTELLINGEN', 'sv': 'ALLMÄNNA INSTÄLLNINGAR',
+  });
+  static String playerSettings(AppLanguage l) => _t(l, {
+    'en': 'PLAYER SETTINGS', 'ar': 'إعدادات المشغل', 'fr': 'PARAMÈTRES DU LECTEUR', 'es': 'AJUSTES DEL REPRODUCTOR',
+    'de': 'PLAYER-EINSTELLUNGEN', 'pt': 'CONFIGURAÇÕES DO PLAYER', 'tr': 'OYNATICI AYARLARI', 'ru': 'НАСТРОЙКИ ПЛЕЕРА', 'zh': '播放器设置',
+    'hi': 'प्लेयर सेटिंग्स', 'ja': 'プレーヤー設定', 'ko': '플레이어 설정', 'it': 'IMPOSTAZIONI PLAYER', 'nl': 'SPELERINSTELLINGEN', 'sv': 'SPELARINSTÄLLNINGAR',
+  });
+  static String cacheSection(AppLanguage l) => _t(l, {
+    'en': 'CACHE', 'ar': 'ذاكرة التخزين المؤقت', 'fr': 'CACHE', 'es': 'CACHÉ', 'de': 'CACHE', 'pt': 'CACHE', 'tr': 'ÖNBELLEK',
+    'ru': 'КЭШ', 'zh': '缓存', 'hi': 'कैश', 'ja': 'キャッシュ', 'ko': '캐시', 'it': 'CACHE', 'nl': 'CACHE', 'sv': 'CACHE',
+  });
+  static String more(AppLanguage l) => _t(l, {
+    'en': 'MORE', 'ar': 'المزيد', 'fr': 'PLUS', 'es': 'MÁS', 'de': 'MEHR', 'pt': 'MAIS', 'tr': 'DAHA FAZLA', 'ru': 'ЕЩЁ',
+    'zh': '更多', 'hi': 'अधिक', 'ja': 'その他', 'ko': '더 보기', 'it': 'ALTRO', 'nl': 'MEER', 'sv': 'MER',
+  });
+  static String organizeByGroups(AppLanguage l) => _t(l, {
+    'en': 'Organize by Groups', 'ar': 'التنظيم حسب المجموعات', 'fr': 'Organiser par groupes', 'es': 'Organizar por grupos',
+    'de': 'Nach Gruppen ordnen', 'pt': 'Organizar por grupos', 'tr': 'Gruplara göre düzenle', 'ru': 'Группировать', 'zh': '按分组整理',
+    'hi': 'समूहों द्वारा व्यवस्थित करें', 'ja': 'グループで整理', 'ko': '그룹별 정리', 'it': 'Organizza per gruppi', 'nl': 'Ordenen op groepen', 'sv': 'Ordna efter grupper',
+  });
+  static String clearRecentData(AppLanguage l) => _t(l, {
+    'en': 'Clear Recent Data', 'ar': 'مسح البيانات الأخيرة', 'fr': 'Effacer les données récentes', 'es': 'Borrar datos recientes',
+    'de': 'Letzte Daten löschen', 'pt': 'Limpar dados recentes', 'tr': 'Son verileri temizle', 'ru': 'Очистить недавние', 'zh': '清除最近数据',
+    'hi': 'हाल का डेटा साफ़ करें', 'ja': '最近のデータを消去', 'ko': '최근 데이터 삭제', 'it': 'Cancella dati recenti', 'nl': 'Recente gegevens wissen', 'sv': 'Rensa senaste data',
+  });
+  static String epgSettings(AppLanguage l) => _t(l, {
+    'en': 'EPG Settings', 'ar': 'إعدادات دليل البرامج', 'fr': 'Paramètres EPG', 'es': 'Ajustes de EPG', 'de': 'EPG-Einstellungen',
+    'pt': 'Configurações de EPG', 'tr': 'EPG Ayarları', 'ru': 'Настройки EPG', 'zh': '节目指南设置', 'hi': 'EPG सेटिंग्स',
+    'ja': 'EPG設定', 'ko': 'EPG 설정', 'it': 'Impostazioni EPG', 'nl': 'EPG-instellingen', 'sv': 'EPG-inställningar',
+  });
+  static String clearEpgCache(AppLanguage l) => _t(l, {
+    'en': 'Clear EPG cache', 'ar': 'مسح ذاكرة دليل البرامج', 'fr': 'Vider le cache EPG', 'es': 'Borrar caché de EPG',
+    'de': 'EPG-Cache leeren', 'pt': 'Limpar cache de EPG', 'tr': 'EPG önbelleğini temizle', 'ru': 'Очистить кэш EPG', 'zh': '清除节目指南缓存',
+    'hi': 'EPG कैश साफ़ करें', 'ja': 'EPGキャッシュを消去', 'ko': 'EPG 캐시 삭제', 'it': 'Svuota cache EPG', 'nl': 'EPG-cache wissen', 'sv': 'Rensa EPG-cache',
+  });
+  static String customerSupport(AppLanguage l) => _t(l, {
+    'en': 'Customer support', 'ar': 'دعم العملاء', 'fr': 'Assistance', 'es': 'Atención al cliente', 'de': 'Kundensupport',
+    'pt': 'Suporte ao cliente', 'tr': 'Müşteri desteği', 'ru': 'Поддержка', 'zh': '客户支持', 'hi': 'ग्राहक सहायता',
+    'ja': 'カスタマーサポート', 'ko': '고객 지원', 'it': 'Assistenza clienti', 'nl': 'Klantenservice', 'sv': 'Kundsupport',
   });
   static String channelList(AppLanguage l) => _t(l, {
     'en': 'CHANNEL LIST', 'ar': 'قائمة القنوات', 'fr': 'LISTE DES CHAÎNES', 'es': 'LISTA DE CANALES',
