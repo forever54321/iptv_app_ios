@@ -8,6 +8,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../services/parental_pin_service.dart';
+import '../../services/reminder_service.dart';
+import '../epg/epg_screen.dart' show showProgramReminderPicker;
 import '../../l10n/app_strings.dart';
 import '../../providers/channel_list_provider.dart';
 import '../../services/playlist_fetch_service.dart';
@@ -35,11 +37,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   String _epgSize = '';
   String _imageSize = '';
   String _version = '';
+  int? _reminderLead;
 
   @override
   void initState() {
     super.initState();
     _refreshSizes();
+    ReminderService.instance.leadMinutes().then((m) {
+      if (mounted) setState(() => _reminderLead = m);
+    });
     PackageInfo.fromPlatform().then((i) {
       if (mounted) setState(() => _version = '${i.version} (${i.buildNumber})');
     });
@@ -155,6 +161,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             trailing: _switch(parentalControl, (_) => _openParental(context)),
             onTap: () => _openParental(context),
           ),
+          if (ReminderService.supported)
+            _row(
+              icon: Icons.notifications_none,
+              title: 'Program reminder',
+              value: ReminderTiming.label(_reminderLead),
+              onTap: () async {
+                final m = await showProgramReminderPicker(context, current: _reminderLead);
+                if (m == _reminderLead) return;
+                await ReminderService.instance.setLeadMinutes(m);
+                if (m != null) await ReminderService.instance.requestPermission();
+                if (mounted) setState(() => _reminderLead = m);
+              },
+            ),
           _header(S.playerSettings(lang)),
           _row(
             icon: Icons.aspect_ratio,
@@ -334,7 +353,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Widget _switch(bool value, ValueChanged<bool> onChanged) => Switch(
         value: value,
         onChanged: onChanged,
-        activeColor: Colors.white,
+        activeThumbColor: Colors.white,
         activeTrackColor: _accent,
         inactiveThumbColor: Colors.white,
         inactiveTrackColor: const Color(0xFF3A3A3C),

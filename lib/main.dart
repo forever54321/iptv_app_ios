@@ -10,6 +10,7 @@ import 'app.dart';
 import 'services/storage_service.dart';
 import 'services/pro_service.dart';
 import 'services/settings_bootstrap.dart';
+import 'services/reminder_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -51,6 +52,7 @@ void main() async {
   final disclaimerAccepted = prefs.getBool('legal_disclaimer_accepted') ?? false;
   final whatsNewShown = prefs.getBool('whats_new_v4_1_2_shown') ?? false;
 
+  await ReminderService.instance.init();
   final settingsOverrides = await SettingsBootstrap.overrides();
 
   runApp(ProviderScope(overrides: settingsOverrides, child: IptvApp(

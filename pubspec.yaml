@@ -1,7 +1,7 @@
 name: iptv_app
 description: "IPTV Player"
 publish_to: 'none'
-version: 4.2.2+1
+version: 4.2.3+1
 
 environment:
   sdk: ^3.11.0
@@ -30,6 +30,8 @@ dependencies:
   flutter_secure_storage: ^9.2.2
   url_launcher: ^6.3.3
   package_info_plus: ^9.0.1
+  flutter_local_notifications: ^22.3.1
+  timezone: ^0.11.1
 
 dev_dependencies:
   flutter_test:

@@ -9,6 +9,7 @@ import '../../providers/channel_list_provider.dart';
 import '../../providers/epg_provider.dart';
 import '../../providers/category_filter_provider.dart';
 import '../../services/epg_service.dart';
+import '../../services/reminder_service.dart';
 import '../../widgets/loading_widget.dart';
 
 class EpgScreen extends ConsumerStatefulWidget {
@@ -450,6 +451,8 @@ class _EpgScreenState extends ConsumerState<EpgScreen> {
               Text(program.description!, style: TextStyle(color: Colors.grey.shade400, fontSize: 13, height: 1.4)),
             ],
             const SizedBox(height: 16),
+            if (ReminderService.supported && program.start.isAfter(DateTime.now()))
+              _ReminderButton(program: program, channel: channel),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
@@ -473,6 +476,115 @@ class _EpgScreenState extends ConsumerState<EpgScreen> {
       ),
     );
   }
+}
+
+/// "Remind me" / "Reminder set" for a program that hasn't started yet.
+class _ReminderButton extends StatefulWidget {
+  final EpgProgram program;
+  final M3uEntry channel;
+  const _ReminderButton({required this.program, required this.channel});
+
+  @override
+  State<_ReminderButton> createState() => _ReminderButtonState();
+}
+
+class _ReminderButtonState extends State<_ReminderButton> {
+  bool? _isSet;
+
+  ProgramReminder get _reminder => ProgramReminder(
+        channelUrl: widget.channel.url,
+        channelTitle: widget.channel.title,
+        programTitle: widget.program.title,
+        start: widget.program.start,
+      );
+
+  @override
+  void initState() {
+    super.initState();
+    ReminderService.instance.isSet(_reminder).then((v) {
+      if (mounted) setState(() => _isSet = v);
+    });
+  }
+
+  Future<void> _toggle() async {
+    final svc = ReminderService.instance;
+    if (_isSet == true) {
+      await svc.remove(_reminder);
+      if (mounted) setState(() => _isSet = false);
+      return;
+    }
+    var lead = await svc.leadMinutes();
+    if (lead == null) {
+      // "Program reminder" is still "Not selected" — ask once, here.
+      if (!mounted) return;
+      lead = await showProgramReminderPicker(context, current: null, allowOff: false);
+      if (lead == null) return;
+      await svc.setLeadMinutes(lead);
+    }
+    final ok = await svc.add(_reminder, lead);
+    if (!mounted) return;
+    setState(() => _isSet = ok);
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(ok
+          ? 'Reminder set — ${ReminderTiming.label(lead).toLowerCase()}'
+          : 'Can\'t set a reminder: it starts too soon, or notifications are off for this app in Settings.'),
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final on = _isSet == true;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: SizedBox(
+        width: double.infinity,
+        child: OutlinedButton.icon(
+          onPressed: _isSet == null ? null : _toggle,
+          icon: Icon(on ? Icons.notifications_active : Icons.notifications_none),
+          label: Text(on ? 'Reminder set — tap to remove' : 'Remind me'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: on ? const Color(0xFF1E9BFF) : Colors.white,
+            side: BorderSide(color: on ? const Color(0xFF1E9BFF) : Colors.grey.shade700),
+            padding: const EdgeInsets.symmetric(vertical: 12),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Lead-time picker shared by Settings and the guide. Returns the minutes,
+/// or null for "Not selected"/cancel.
+Future<int?> showProgramReminderPicker(BuildContext context,
+    {required int? current, bool allowOff = true}) async {
+  const off = -1;
+  final picked = await showModalBottomSheet<int>(
+    context: context,
+    backgroundColor: const Color(0xFF1E1E2E),
+    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+    builder: (c) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Padding(
+            padding: EdgeInsets.all(16),
+            child: Text('Program reminder', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          ),
+          for (final m in ReminderTiming.options)
+            if (m != null || allowOff)
+              ListTile(
+                leading: Icon(m == current ? Icons.radio_button_checked : Icons.radio_button_off,
+                    color: m == current ? const Color(0xFF1E9BFF) : Colors.grey),
+                title: Text(ReminderTiming.label(m)),
+                onTap: () => Navigator.pop(c, m ?? off),
+              ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    ),
+  );
+  if (picked == null) return allowOff ? current : null;
+  return picked == off ? null : picked;
 }
 
 class _TimeHeaderPainter extends CustomPainter {
