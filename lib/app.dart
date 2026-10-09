@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'widgets/side_safe_area.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'providers/category_filter_provider.dart';
 import 'providers/channel_list_provider.dart';
@@ -10,14 +11,17 @@ import 'core/theme.dart';
 class IptvApp extends StatefulWidget {
   final bool disclaimerAccepted;
   final bool showWhatsNew;
-  const IptvApp({super.key, required this.disclaimerAccepted, this.showWhatsNew = false});
+  /// DEBUG-only (IPTV_ROUTE launch env): open this route first.
+  final String? debugInitialLocation;
+  const IptvApp({super.key, required this.disclaimerAccepted, this.showWhatsNew = false, this.debugInitialLocation});
 
   @override
   State<IptvApp> createState() => _IptvAppState();
 }
 
 class _IptvAppState extends State<IptvApp> {
-  late final _router = createRouter(widget.disclaimerAccepted, widget.showWhatsNew);
+  late final _router = createRouter(widget.disclaimerAccepted, widget.showWhatsNew,
+      debugInitialLocation: widget.debugInitialLocation);
 
   @override
   void initState() {
@@ -51,6 +55,7 @@ class _IptvAppState extends State<IptvApp> {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.dark,
       routerConfig: _router,
+      builder: (context, child) => SideSafeArea(child: child!),
     );
   }
 }

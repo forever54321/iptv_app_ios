@@ -18,6 +18,7 @@ import '../../providers/pro_provider.dart';
 import '../../services/epg_service.dart';
 import '../../services/pro_service.dart';
 import '../../providers/epg_provider.dart';
+import '../../widgets/readable_width.dart';
 
 // Settings providers
 final recentChannelsProvider = StateProvider<bool>((ref) => true);
@@ -107,7 +108,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
         title: Text(S.settings(lang)),
       ),
-      body: ListView(
+      body: ReadableWidth(child: ListView(
         padding: const EdgeInsets.only(bottom: 40),
         children: [
           _buildProSection(context),
@@ -263,7 +264,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
         ],
-      ),
+      )),
     );
   }
 
@@ -625,7 +626,7 @@ class EpgSettingsScreen extends ConsumerWidget {
         );
     return Scaffold(
       appBar: AppBar(title: Text(S.epgSettings(lang))),
-      body: ListView(
+      body: ReadableWidth(child: ListView(
         padding: const EdgeInsets.only(top: 12),
         children: [
           row(Icons.link, 'EPG URL', 'Auto-detected from playlist, or set your own', () => _editUrl(context, ref)),
@@ -635,7 +636,7 @@ class EpgSettingsScreen extends ConsumerWidget {
           }),
           row(Icons.view_timeline_outlined, 'Open Program Guide', null, () => context.go('/epg')),
         ],
-      ),
+      )),
     );
   }
 

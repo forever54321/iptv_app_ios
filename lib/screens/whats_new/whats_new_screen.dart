@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../widgets/readable_width.dart';
 
 class WhatsNewScreen extends StatelessWidget {
   final bool isStartup;
@@ -21,7 +22,7 @@ class WhatsNewScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
+      body: ReadableWidth(child: SafeArea(
         child: Column(
           children: [
             Expanded(
@@ -237,7 +238,7 @@ class WhatsNewScreen extends StatelessWidget {
             ),
           ],
         ),
-      ),
+      )),
     );
   }
 }

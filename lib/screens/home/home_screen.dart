@@ -9,6 +9,7 @@ import '../../providers/category_filter_provider.dart';
 import '../../screens/settings/settings_screen.dart';
 import '../../widgets/loading_widget.dart';
 import 'add_playlist_dialog.dart';
+import '../../widgets/readable_width.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -25,7 +26,7 @@ class HomeScreen extends ConsumerWidget {
       ),
       drawer: _AppDrawer(),
       body: GlossyBackground(
-        child: sourcesAsync.when(
+        child: ReadableWidth(child: sourcesAsync.when(
         loading: () => const LoadingWidget(message: 'Loading playlists...'),
         error: (err, _) => ErrorDisplay(
           message: err.toString(),
@@ -63,7 +64,7 @@ class HomeScreen extends ConsumerWidget {
             },
           );
         },
-      )),
+      ))),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddDialog(context, ref),
         child: const Icon(Icons.add),

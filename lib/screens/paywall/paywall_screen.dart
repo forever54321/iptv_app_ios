@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/pro_provider.dart';
 import '../../services/pro_service.dart';
+import '../../widgets/fill_or_scroll.dart';
+import '../../widgets/readable_width.dart';
 
 class PaywallScreen extends ConsumerStatefulWidget {
   const PaywallScreen({super.key});
@@ -42,8 +44,8 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
           },
         ),
       ),
-      body: SafeArea(
-        child: Padding(
+      body: ReadableWidth(child: SafeArea(
+        child: FillOrScroll(child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -137,8 +139,8 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
               ),
             ],
           ),
-        ),
-      ),
+        )),
+      )),
     );
   }
 
@@ -266,8 +268,8 @@ class _ProUnlockedSuccess extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
-        child: Padding(
+      body: ReadableWidth(child: SafeArea(
+        child: FillOrScroll(child: Padding(
           padding: const EdgeInsets.all(32),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -324,8 +326,8 @@ class _ProUnlockedSuccess extends StatelessWidget {
               ),
             ],
           ),
-        ),
-      ),
+        )),
+      )),
     );
   }
 }

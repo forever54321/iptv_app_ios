@@ -29,9 +29,12 @@ class ProGate extends ConsumerWidget {
   }
 }
 
-GoRouter createRouter(bool disclaimerAccepted, bool showWhatsNew) {
+GoRouter createRouter(bool disclaimerAccepted, bool showWhatsNew,
+    {String? debugInitialLocation}) {
   String initialLocation;
-  if (!disclaimerAccepted) {
+  if (debugInitialLocation != null) {
+    initialLocation = debugInitialLocation;
+  } else if (!disclaimerAccepted) {
     initialLocation = '/';
   } else if (showWhatsNew) {
     initialLocation = '/whats-new';

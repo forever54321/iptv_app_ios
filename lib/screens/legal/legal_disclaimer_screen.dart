@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:go_router/go_router.dart';
+import '../../widgets/readable_width.dart';
 
 class LegalDisclaimerScreen extends StatelessWidget {
   const LegalDisclaimerScreen({super.key});
@@ -23,7 +24,7 @@ class LegalDisclaimerScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
+      body: ReadableWidth(child: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
           child: Column(
@@ -126,7 +127,7 @@ class LegalDisclaimerScreen extends StatelessWidget {
             ],
           ),
         ),
-      ),
+      )),
     );
   }
 
