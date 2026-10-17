@@ -9,13 +9,13 @@ import 'package:hive/hive.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Pure free-week rules — no plugins, so tests can check them.
+/// Pure free-trial rules — no plugins, so tests can check them.
 class ProTrial {
-  static const days = 7;
+  static const days = 3;
 
   static DateTime endsAt(DateTime start) => start.add(const Duration(days: days));
 
-  /// Active from [start] for 7 days. A clock set back more than a day before
+  /// Active from [start] for [days] days. A clock set back more than a day before
   /// the start doesn't keep it alive.
   static bool isActive(DateTime? start, DateTime now) {
     if (start == null) return false;
@@ -31,7 +31,7 @@ class ProTrial {
   }
 
   static String label(int daysLeft) =>
-      daysLeft <= 1 ? 'Free Pro week: last day' : 'Free Pro week: $daysLeft days left';
+      daysLeft <= 1 ? 'Free Pro trial: last day' : 'Free Pro trial: $daysLeft days left';
 }
 
 class ProService {
@@ -61,11 +61,11 @@ class ProService {
   /// Pro is owned (bought, restored, grandfathered or promo code).
   final ValueNotifier<bool> isPro = ValueNotifier(false);
 
-  /// What every Pro gate checks: owned OR inside the free week.
+  /// What every Pro gate checks: owned OR inside the free trial.
   final ValueNotifier<bool> hasAccess = ValueNotifier(false);
 
   /// First launch of a trial-aware build. Kept in the Keychain so deleting
-  /// and reinstalling doesn't restart the week. Deliberately not the App
+  /// and reinstalling doesn't restart the trial. Deliberately not the App
   /// Store receipt date — that's a placeholder in TestFlight/App Review.
   DateTime? trialStart;
   static const _trialKey = 'pro_trial_start';

@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/pro_service.dart';
 
-/// True when Pro features may be used: owned, or inside the free week.
+/// True when Pro features may be used: owned, or inside the free trial.
 final hasProAccessProvider =
     NotifierProvider<HasProAccessNotifier, bool>(HasProAccessNotifier.new);
 

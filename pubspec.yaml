@@ -1,7 +1,7 @@
 name: iptv_app
 description: "IPTV Player"
 publish_to: 'none'
-version: 4.2.6+2
+version: 4.2.7+1
 
 environment:
   sdk: ^3.11.0
