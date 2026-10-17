@@ -38,7 +38,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.iptvapp.player"
+        applicationId = "com.szakari.iptvplayer"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
