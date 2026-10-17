@@ -1,10 +1,21 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:iptv_app/services/pro_service.dart';
 
 void main() {
   final start = DateTime(2026, 10, 6, 15);
 
-  test('free trial is active for 3 days from the first launch', () {
+  setUp(() => debugDefaultTargetPlatformOverride = TargetPlatform.android);
+  tearDown(() => debugDefaultTargetPlatformOverride = null);
+
+  test('iPhone keeps its 7-day trial', () {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    expect(ProTrial.days, 7);
+    expect(ProTrial.isActive(start, start.add(const Duration(days: 6, hours: 23))), isTrue);
+    expect(ProTrial.isActive(start, start.add(const Duration(days: 7))), isFalse);
+  });
+
+  test('Android trial is active for 3 days from the first launch', () {
     expect(ProTrial.isActive(start, start), isTrue);
     expect(ProTrial.isActive(start, start.add(const Duration(days: 2, hours: 23))), isTrue);
     expect(ProTrial.isActive(start, start.add(const Duration(days: 3))), isFalse);

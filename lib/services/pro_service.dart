@@ -11,9 +11,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 /// Pure free-trial rules — no plugins, so tests can check them.
 class ProTrial {
-  static const days = 3;
+  /// Android: 3 days, then the \$3.99 one-time unlock. iPhone/iPad keep the
+  /// 7 days they shipped with.
+  static int get days => defaultTargetPlatform == TargetPlatform.android ? 3 : 7;
 
-  static DateTime endsAt(DateTime start) => start.add(const Duration(days: days));
+  static DateTime endsAt(DateTime start) => start.add(Duration(days: days));
 
   /// Active from [start] for [days] days. A clock set back more than a day before
   /// the start doesn't keep it alive.
@@ -119,6 +121,14 @@ class ProService {
 
     _sub = _iap.purchaseStream.listen(_onPurchases, onError: (_) {});
 
+    // Google Play: re-find an owned unlock silently (reinstall, new phone).
+    // Results arrive on purchaseStream as `restored`.
+    if (Platform.isAndroid && !isPro.value) {
+      try {
+        await _iap.restorePurchases();
+      } catch (_) {}
+    }
+
     try {
       final response = await _iap.queryProductDetails({productId});
       if (response.productDetails.isNotEmpty) {
@@ -139,6 +149,9 @@ class ProService {
     SharedPreferences prefs, {
     bool interactive = false,
   }) async {
+    // Only the Apple apps were ever paid. On Android the "has playlists"
+    // fallback below would hand Pro to anyone who taps Restore.
+    if (Platform.isAndroid) return;
     if (Platform.isIOS) {
       try {
         final method = interactive
@@ -235,6 +248,10 @@ class ProService {
 
   /// Diagnostic snapshot for surfacing to the user when restore fails.
   String diagnosticMessage() {
+    if (Platform.isAndroid) {
+      return 'No Pro purchase found. Make sure this phone is signed into '
+          'Google Play with the account you used to buy Pro.';
+    }
     if (lastReceiptError != null) {
       return 'Receipt check failed: $lastReceiptError';
     }

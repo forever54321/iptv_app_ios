@@ -82,7 +82,7 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
                 Text(
                   pro.isInTrial
                       ? '${ProTrial.label(pro.trialDaysLeft)} — keep everything after it with Unlock Pro'
-                      : 'Your 3-day free trial has ended',
+                      : 'Your free Pro trial has ended',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: pro.isInTrial ? Colors.greenAccent : Colors.orangeAccent,
