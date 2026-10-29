@@ -10,6 +10,12 @@ import 'package:window_manager/window_manager.dart';
 import '../../providers/player_provider.dart';
 import '../../providers/pro_provider.dart';
 import '../../providers/recent_channels_provider.dart';
+import '../../providers/category_filter_provider.dart';
+import '../../providers/epg_provider.dart';
+import '../../services/hinge_service.dart';
+import '../../models/m3u_entry.dart';
+import '../../core/glass.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../settings/settings_screen.dart';
 
 bool get _isDesktop =>
@@ -53,14 +59,34 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     });
     _startHideTimer();
 
-    // On iOS, force landscape for video playback
+    // On iOS, force landscape for video playback — except on a half-folded iPhone Duo,
+    // where the screen follows how it's held so the video can sit above the channel list.
     if (Platform.isIOS) {
-      SystemChrome.setPreferredOrientations([
-        DeviceOrientation.landscapeLeft,
-        DeviceOrientation.landscapeRight,
-      ]);
+      _applyOrientation(ref.read(hingeProvider).valueOrNull ?? HingeState.none);
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+      ref.listenManual(hingeProvider, (_, next) {
+        final h = next.valueOrNull;
+        if (h != null) _applyOrientation(h);
+      });
     }
+  }
+
+  void _applyOrientation(HingeState hinge) {
+    SystemChrome.setPreferredOrientations(hinge.isHalfOpen
+        ? DeviceOrientation.values
+        : [DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]);
+  }
+
+  /// Tune to a channel from the Duo's bottom list (same as next/previous: also adds it to Recent).
+  void _pickChannel(int index) {
+    final notifier = ref.read(playerProvider.notifier);
+    notifier.playChannel(index);
+    Future.microtask(() {
+      final ch = notifier.currentChannel;
+      if (ch != null) ref.read(recentChannelsListProvider.notifier).addRecent(ch);
+    });
+    setState(() => _showOverlay = true);
+    _startHideTimer();
   }
 
   @override
@@ -142,10 +168,30 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     final notifier = ref.read(playerProvider.notifier);
     final channel = notifier.currentChannel;
     final aspectRatio = ref.watch(defaultAspectRatioProvider);
+    final hinge = ref.watch(hingeProvider).valueOrNull ?? HingeState.none;
 
     return Scaffold(
       backgroundColor: Colors.black,
-      body: KeyboardListener(
+      body: LayoutBuilder(builder: (context, box) {
+        final surface = _surface(state, notifier, channel, aspectRatio);
+        if (!hinge.isHalfOpen) return surface;
+        // Half-folded iPhone Duo: one half plays, the other half lists the channels.
+        // Held like a laptop the screen is tall → video on top, channels below the fold;
+        // held like a book it's wide → video left, channels right.
+        final tall = box.maxHeight >= box.maxWidth;
+        return Flex(
+          direction: tall ? Axis.vertical : Axis.horizontal,
+          children: [
+            Expanded(child: ClipRect(child: surface)),
+            Expanded(child: _DuoChannelPanel(onPick: _pickChannel)),
+          ],
+        );
+      }),
+    );
+  }
+
+  Widget _surface(PlayerState state, PlayerNotifier notifier, M3uEntry? channel, String aspectRatio) {
+    return KeyboardListener(
         focusNode: FocusNode()..requestFocus(),
         onKeyEvent: (event) {
           if (event is KeyDownEvent) {
@@ -396,7 +442,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
             ),
           ),
         ),
-      ),
     );
   }
 
@@ -493,6 +538,152 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       SnackBar(
         content: Text('Aspect Ratio: ${ratios[nextIndex]}'),
         duration: const Duration(seconds: 1),
+      ),
+    );
+  }
+}
+
+/// The bottom (or right) half of a half-folded iPhone Duo: every channel in the current list,
+/// the one playing highlighted. Tap one and it plays in the other half.
+class _DuoChannelPanel extends ConsumerStatefulWidget {
+  final void Function(int index) onPick;
+  const _DuoChannelPanel({required this.onPick});
+
+  @override
+  ConsumerState<_DuoChannelPanel> createState() => _DuoChannelPanelState();
+}
+
+class _DuoChannelPanelState extends ConsumerState<_DuoChannelPanel> {
+  static const _rowHeight = 64.0;
+  final _scroll = ScrollController();
+  int? _scrolledTo;
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  /// Keep the playing channel in view (once per change, so the user can still scroll freely).
+  void _reveal(int index) {
+    if (_scrolledTo == index) return;
+    _scrolledTo = index;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scroll.hasClients) return;
+      final target = (index * _rowHeight - _scroll.position.viewportDimension / 2 + _rowHeight / 2)
+          .clamp(0.0, _scroll.position.maxScrollExtent);
+      _scroll.animateTo(target, duration: const Duration(milliseconds: 280), curve: Curves.easeOut);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final channels = ref.watch(filteredChannelsProvider);
+    final current = ref.watch(playerProvider.select((s) => s.currentIndex));
+    _reveal(current);
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [AppColors.bgTop, AppColors.bgBottom],
+        ),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+              child: Row(children: [
+                const Icon(Icons.live_tv_rounded, color: AppColors.sky, size: 20),
+                const SizedBox(width: 8),
+                const Text('Channels',
+                    style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w700)),
+                const Spacer(),
+                Text('${channels.length}', style: const TextStyle(color: AppColors.slate, fontSize: 14)),
+              ]),
+            ),
+            Expanded(
+              child: channels.isEmpty
+                  ? const Center(child: Text('No channels in this list', style: TextStyle(color: AppColors.slate)))
+                  : ListView.builder(
+                      controller: _scroll,
+                      itemExtent: _rowHeight,
+                      padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+                      itemCount: channels.length,
+                      itemBuilder: (_, i) => _DuoChannelRow(
+                        channel: channels[i],
+                        number: i + 1,
+                        playing: i == current,
+                        onTap: () => widget.onPick(i),
+                      ),
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DuoChannelRow extends ConsumerWidget {
+  final M3uEntry channel;
+  final int number;
+  final bool playing;
+  final VoidCallback onTap;
+  const _DuoChannelRow({required this.channel, required this.number, required this.playing, required this.onTap});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final now = ref.watch(currentProgramProvider(channel.tvgId ?? ''));
+    final logo = channel.tvgLogo;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Material(
+        color: playing ? AppColors.violet.withValues(alpha: 0.30) : AppColors.surfaceLo.withValues(alpha: 0.85),
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            child: Row(children: [
+              SizedBox(
+                width: 30,
+                child: Text('$number', textAlign: TextAlign.center,
+                    style: TextStyle(color: playing ? Colors.white : AppColors.slate, fontSize: 13, fontWeight: FontWeight.w600)),
+              ),
+              const SizedBox(width: 6),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  width: 52, height: 38, color: Colors.black26,
+                  child: logo != null && logo.isNotEmpty
+                      ? CachedNetworkImage(imageUrl: logo, fit: BoxFit.contain,
+                          errorWidget: (_, __, ___) => const Icon(Icons.live_tv_rounded, color: Colors.white30, size: 20))
+                      : const Icon(Icons.live_tv_rounded, color: Colors.white30, size: 20),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(channel.title, maxLines: 1, overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600)),
+                    if (now != null)
+                      Text(now.title, maxLines: 1, overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(color: AppColors.slate, fontSize: 12)),
+                  ],
+                ),
+              ),
+              if (playing) const Icon(Icons.equalizer_rounded, color: AppColors.teal, size: 22),
+            ]),
+          ),
+        ),
       ),
     );
   }
